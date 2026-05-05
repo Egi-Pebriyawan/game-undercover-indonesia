@@ -17,15 +17,6 @@ watch(() => gameStore.currentRoom?.status, (newStatus) => {
 
 onMounted(async () => {
   if (!gameStore.currentRoom) {
-    // Try to restore session
-    const storedToken = localStorage.getItem('undercover_session')
-    if (storedToken) {
-      // In a real app, you'd fetch the player and room by token
-      // For now, redirect to home if no room in store
-      router.push('/')
-      return
-    }
-    router.push('/')
     return
   }
 
@@ -44,6 +35,12 @@ const isHost = () => {
 const startGame = async () => {
   await gameStore.startGame()
 }
+
+watch(() => gameStore.error, (newError) => {
+  if (newError) {
+    gameStore.showNotify(newError, 'error')
+  }
+})
 </script>
 
 <template>

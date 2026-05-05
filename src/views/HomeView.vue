@@ -12,17 +12,9 @@ const nickname = ref('')
 const roomCode = ref('')
 const selectedLang = ref('ID')
 const showConfirm = ref(false)
-const notification = ref({ show: false, message: '', type: 'error' })
-
-const showNotify = (msg, type = 'error') => {
-  notification.value = { show: true, message: msg, type }
-  setTimeout(() => {
-    notification.value.show = false
-  }, 3000)
-}
 
 const handleCreateClick = () => {
-  if (!nickname.value) return showNotify(t('nickname') + ' required')
+  if (!nickname.value) return gameStore.showNotify(t('nickname') + ' required')
   showConfirm.value = true
 }
 
@@ -37,14 +29,14 @@ const confirmCreate = async () => {
 }
 
 const handleJoin = async () => {
-  if (!nickname.value) return showNotify('Nickname required')
-  if (!roomCode.value) return showNotify('Room Code required')
+  if (!nickname.value) return gameStore.showNotify('Nickname required')
+  if (!roomCode.value) return gameStore.showNotify('Room Code required')
   
   const player = await gameStore.joinRoom(roomCode.value.toUpperCase(), nickname.value)
   if (player) {
     router.push(`/room/${roomCode.value.toUpperCase()}`)
   } else {
-    showNotify(gameStore.error || 'Room not found')
+    gameStore.showNotify(gameStore.error || 'Room not found')
   }
 }
 </script>
@@ -129,18 +121,6 @@ const handleJoin = async () => {
             </button>
           </div>
         </div>
-      </div>
-    </Teleport>
-
-    <!-- Custom Notification -->
-    <Teleport to="body">
-      <div 
-        v-if="notification.show" 
-        class="fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-6 py-3 rounded-2xl shadow-xl border animate-in slide-in-from-top duration-300"
-        :class="notification.type === 'error' ? 'bg-white border-red-100 text-red-600' : 'bg-white border-primary-100 text-primary-600'"
-      >
-        <span class="text-xl">{{ notification.type === 'error' ? '⚠️' : '✅' }}</span>
-        <p class="font-bold text-sm tracking-wide">{{ notification.message }}</p>
       </div>
     </Teleport>
   </div>
