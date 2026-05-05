@@ -10,6 +10,7 @@ export const useGameStore = defineStore('game', {
     notification: { show: false, message: '', type: 'error' }
   }),
 
+  getters: {
     myPlayer: (state) => {
       const myId = localStorage.getItem('undercover_player_id')
       return state.players.find(p => p.id === myId) || null
