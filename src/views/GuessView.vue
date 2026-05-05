@@ -29,30 +29,43 @@ const submitGuess = async () => {
 }
 </script>
 
+<!-- GuessView.vue -->
 <template>
-  <div class="min-h-screen p-4 flex flex-col items-center justify-center text-center">
-    <div class="max-w-md w-full space-y-8">
+  <div class="min-h-screen p-6 flex flex-col items-center justify-center text-center relative overflow-hidden">
+    <!-- Decorative background elements -->
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
+
+    <div class="z-10 max-w-md w-full space-y-10">
       <div v-if="gameStore.myPlayer?.role === 'MR_WHITE'">
-        <h1 class="text-4xl font-bold text-purple-400 mb-4">MR. WHITE IS ELIMINATED!</h1>
-        <p class="text-xl mb-8">But wait! You can still win if you can guess the <span class="text-emerald-400 font-bold">Civilian Word</span>.</p>
+        <h1 class="text-4xl font-black text-slate-800 mb-4">LAST CHANCE!</h1>
+        <p class="text-slate-500 font-medium leading-relaxed">
+          You were eliminated, but you can still win if you can guess the 
+          <span class="text-primary-600 font-black">Civilian Word</span>.
+        </p>
         
-        <div class="glass p-8 space-y-6">
+        <div class="glass p-10 space-y-8 mt-10">
           <input 
             v-model="guess" 
             type="text" 
-            class="input-field w-full text-center text-2xl uppercase tracking-widest"
-            placeholder="TYPE WORD HERE"
+            class="input-field w-full text-center text-3xl font-black uppercase tracking-[0.2em] !bg-slate-50 border-2"
+            placeholder="TYPE WORD"
             @keyup.enter="submitGuess"
           >
-          <button @click="submitGuess" class="btn-primary w-full">
+          <button @click="submitGuess" class="btn-primary w-full text-lg shadow-xl shadow-primary-500/20">
             SUBMIT GUESS
           </button>
         </div>
       </div>
 
-      <div v-else class="glass p-8 space-y-6">
-        <h1 class="text-2xl font-bold">Mr. White is guessing...</h1>
-        <p class="text-slate-400 animate-pulse">If he guesses correctly, he wins!</p>
+      <div v-else class="glass p-10 space-y-8">
+        <div class="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center text-4xl mx-auto shadow-inner border border-primary-100">
+          🤔
+        </div>
+        <div>
+          <h1 class="text-2xl font-black text-slate-800 mb-2">Mr. White is guessing...</h1>
+          <p class="text-slate-400 font-medium animate-pulse tracking-wide uppercase text-[10px]">If he's right, he wins it all!</p>
+        </div>
       </div>
     </div>
   </div>

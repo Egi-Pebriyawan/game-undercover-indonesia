@@ -34,39 +34,43 @@ const handleJoin = async () => {
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
     <!-- Decorative background elements -->
-    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-600/20 rounded-full blur-3xl"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-secondary-600/20 rounded-full blur-3xl"></div>
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
 
     <div class="z-10 w-full max-w-md flex flex-col items-center">
       <div class="mb-10 text-center">
-        <h1 class="text-5xl md:text-6xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-br from-white via-primary-100 to-primary-300 drop-shadow-sm">
+        <h1 class="text-5xl md:text-6xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-br from-primary-600 to-primary-800 drop-shadow-sm">
           UNDERCOVER
         </h1>
-        <p class="text-primary-200/80 tracking-widest uppercase text-sm font-semibold">The Secret Role Game</p>
+        <p class="text-primary-600/80 tracking-widest uppercase text-sm font-bold">The Secret Role Game</p>
       </div>
 
       <div class="glass p-8 w-full space-y-8">
         <div class="space-y-2">
-          <label class="block text-sm font-semibold text-slate-300 tracking-wide">{{ t('nickname') }}</label>
+          <label class="block text-sm font-bold text-slate-500 tracking-wide uppercase">{{ t('nickname') }}</label>
           <input v-model="nickname" type="text" class="input-field w-full text-lg" placeholder="Enter your name...">
         </div>
 
-        <div class="pt-6 border-t border-white/10 space-y-5">
+        <div class="pt-6 border-t border-slate-100 space-y-5">
           <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-white">{{ t('createRoom') }}</h2>
+            <h2 class="text-xl font-bold text-slate-800">{{ t('createRoom') }}</h2>
           </div>
           
-          <div class="flex gap-3 bg-slate-950/40 p-1.5 rounded-2xl border border-white/5">
+          <div class="flex gap-3 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
             <button 
               @click="selectedLang = 'ID'"
-              :class="selectedLang === 'ID' ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:text-white'"
-              class="flex-1 py-2.5 rounded-xl font-medium transition-all duration-300"
-            >ID</button>
+              :class="selectedLang === 'ID' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+              class="flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              <span>🇮🇩</span> ID
+            </button>
             <button 
               @click="selectedLang = 'EN'"
-              :class="selectedLang === 'EN' ? 'bg-primary-600 text-white shadow-md' : 'text-slate-400 hover:text-white'"
-              class="flex-1 py-2.5 rounded-xl font-medium transition-all duration-300"
-            >EN</button>
+              :class="selectedLang === 'EN' ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+              class="flex-1 py-2.5 rounded-xl font-bold transition-all duration-300 flex items-center justify-center gap-2"
+            >
+              <span>🇺🇸</span> EN
+            </button>
           </div>
           
           <button @click="handleCreate" class="btn-primary w-full group" :disabled="gameStore.loading">
@@ -79,10 +83,10 @@ const handleJoin = async () => {
           </button>
         </div>
 
-        <div class="pt-6 border-t border-white/10 space-y-5">
-          <h2 class="text-xl font-bold text-white">{{ t('joinRoom') }}</h2>
+        <div class="pt-6 border-t border-slate-100 space-y-5">
+          <h2 class="text-xl font-bold text-slate-800">{{ t('joinRoom') }}</h2>
           <input v-model="roomCode" type="text" class="input-field w-full text-lg uppercase tracking-widest text-center" :placeholder="t('roomCode')" maxlength="6">
-          <button @click="handleJoin" class="btn-primary w-full !from-slate-700 !to-slate-800 hover:!from-slate-600 hover:!to-slate-700 border border-white/10" :disabled="gameStore.loading">
+          <button @click="handleJoin" class="btn-primary w-full !bg-slate-100 !text-slate-700 hover:!bg-slate-200 border border-slate-200 shadow-none" :disabled="gameStore.loading">
             {{ gameStore.loading ? 'Joining...' : t('joinRoom') }}
           </button>
         </div>

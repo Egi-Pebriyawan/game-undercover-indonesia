@@ -5,10 +5,16 @@ export const useGameStore = defineStore('game', {
   state: () => ({
     currentRoom: null,
     players: [],
-    myPlayer: null,
     loading: false,
     error: null
   }),
+
+  getters: {
+    myPlayer: (state) => {
+      const myId = localStorage.getItem('undercover_player_id')
+      return state.players.find(p => p.id === myId) || null
+    }
+  },
 
   actions: {
     async createRoom(language = 'ID') {
@@ -78,9 +84,10 @@ export const useGameStore = defineStore('game', {
       }
 
       this.currentRoom = room
-      this.myPlayer = player
       localStorage.setItem('undercover_session', player.session_token)
       localStorage.setItem('undercover_player_id', player.id)
+      
+      await this.fetchPlayers()
       
       this.loading = false
       return player
@@ -160,19 +167,24 @@ export const useGameStore = defineStore('game', {
       })
 
       // 3. Update Players in DB
+      const shuffledForOrder = [...playerIds].sort(() => Math.random() - 0.5)
+      
       for (const playerId of playerIds) {
+        const turnOrder = shuffledForOrder.indexOf(playerId)
         await supabase
           .from('players')
           .update({
             role: roles[playerId].role,
             word: roles[playerId].word,
-            is_alive: true
+            is_alive: true,
+            turn_order: turnOrder
           })
           .eq('id', playerId)
       }
 
       // 4. Set Room Status to PLAYING and set first turn
-      const firstTurnId = playerIds[Math.floor(Math.random() * playerIds.length)]
+      // The player with turn_order 0 starts
+      const firstTurnId = playerIds.find(id => shuffledForOrder.indexOf(id) === 0)
       
       const { error: roomError } = await supabase
         .from('rooms')
@@ -195,7 +207,7 @@ export const useGameStore = defineStore('game', {
       
       const alivePlayers = this.players
         .filter(p => p.is_alive)
-        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .sort((a, b) => (a.turn_order || 0) - (b.turn_order || 0))
       
       const currentIndex = alivePlayers.findIndex(p => p.id === this.currentRoom.current_turn_player_id)
       let nextIndex = currentIndex + 1

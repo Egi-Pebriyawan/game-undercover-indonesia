@@ -3,39 +3,39 @@
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   
-  --color-primary-500: #8b5cf6;
-  --color-primary-600: #7c3aed;
-  --color-secondary-500: #0ea5e9;
-  --color-secondary-600: #0284c7;
+  --color-primary-500: #1877f2; /* Facebook Blue */
+  --color-primary-600: #166fe5;
+  --color-secondary-500: #4267b2;
+  --color-secondary-600: #365899;
   
-  --color-dark-bg: #0f172a;
+  --color-bg-light: #f0f2f5;
 }
 
 @layer base {
   body {
-    @apply bg-dark-bg text-slate-100 font-sans antialiased min-h-screen selection:bg-primary-500/30;
+    @apply bg-bg-light text-slate-900 font-sans antialiased min-h-screen selection:bg-primary-500/30;
     background-image: 
-      radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
-      radial-gradient(circle at 85% 30%, rgba(14, 165, 233, 0.15), transparent 25%);
+      radial-gradient(circle at 15% 50%, rgba(24, 119, 242, 0.05), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(66, 103, 178, 0.05), transparent 25%);
     background-attachment: fixed;
   }
 }
 
 @layer components {
   .glass {
-    @apply bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)];
+    @apply bg-white/80 backdrop-blur-xl border border-white/50 rounded-3xl shadow-[0_4px_12px_rgba(0,0,0,0.05)];
   }
 
   .glass-panel {
-    @apply bg-white/5 backdrop-blur-md border border-white/5 rounded-2xl;
+    @apply bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl;
   }
 
   .btn-primary {
-    @apply relative overflow-hidden bg-gradient-to-r from-primary-600 to-secondary-600 hover:from-primary-500 hover:to-secondary-500 text-white font-bold py-3.5 px-8 rounded-2xl transition-all duration-300 active:scale-95 shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_30px_rgba(124,58,237,0.5)];
+    @apply relative overflow-hidden bg-primary-500 hover:bg-primary-600 text-white font-bold py-3.5 px-8 rounded-2xl transition-all duration-300 active:scale-95 shadow-md hover:shadow-lg;
   }
 
   .input-field {
-    @apply bg-slate-950/50 border border-slate-700/50 rounded-2xl px-5 py-3.5 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500/50 transition-all shadow-inner;
+    @apply bg-white border border-slate-200 rounded-2xl px-5 py-3.5 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all shadow-sm;
   }
 
   .no-select {
