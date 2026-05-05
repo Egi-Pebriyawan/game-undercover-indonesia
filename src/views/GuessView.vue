@@ -37,14 +37,19 @@ const submitGuess = async () => {
     <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
 
     <div class="z-10 max-w-md w-full space-y-10">
-      <div v-if="gameStore.myPlayer?.role === 'MR_WHITE'">
-        <h1 class="text-4xl font-black text-slate-800 mb-4">LAST CHANCE!</h1>
+      <div v-if="gameStore.myPlayer?.role === 'MR_WHITE' || gameStore.currentRoom?.game_mode === 'offline'">
+        <h1 class="text-4xl font-black text-slate-800 mb-4 uppercase tracking-tighter">Last Chance!</h1>
         <p class="text-slate-500 font-medium leading-relaxed">
-          You were eliminated, but you can still win if you can guess the 
+          {{ gameStore.currentRoom?.game_mode === 'offline' ? 'Mr. White' : 'You' }} was eliminated, but can still win by guessing the 
           <span class="text-primary-600 font-black">Civilian Word</span>.
         </p>
         
-        <div class="glass p-10 space-y-8 mt-10">
+        <div class="glass p-10 space-y-8 mt-10 border-b-8 border-primary-500">
+          <div class="space-y-2">
+            <p class="text-[10px] font-black text-primary-600 uppercase tracking-[0.3em]">Identity Confirmed</p>
+            <h2 class="text-2xl font-black text-slate-800">MR. WHITE</h2>
+          </div>
+
           <input 
             v-model="guess" 
             type="text" 
