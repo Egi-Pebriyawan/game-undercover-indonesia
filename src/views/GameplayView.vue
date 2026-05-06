@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import { useI18n } from 'vue-i18n'
+import { sfx } from '../utils/sfx'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -19,6 +20,29 @@ watch(() => gameStore.currentRoom?.status, (newStatus) => {
   }
 })
 
+const timer = ref(60)
+let timerInterval = null
+
+const startTimer = () => {
+  stopTimer()
+  timer.value = 60
+  timerInterval = setInterval(() => {
+    if (timer.value > 0) {
+      timer.value--
+      if (timer.value === 10 || timer.value === 3) {
+        sfx.play('timer')
+      }
+    } else {
+      stopTimer()
+      sfx.play('notification')
+    }
+  }, 1000)
+}
+
+const stopTimer = () => {
+  if (timerInterval) clearInterval(timerInterval)
+}
+
 onMounted(async () => {
   if (!gameStore.currentRoom || !gameStore.myPlayer) {
     router.push('/')
@@ -27,9 +51,20 @@ onMounted(async () => {
 
   const unsubscribe = await gameStore.subscribeToRoom()
   
+  // Start timer if in discussion phase
+  if (gameStore.currentRoom?.game_mode === 'online' || gameStore.offlineRevealIndex < 0) {
+    startTimer()
+  }
+
   onUnmounted(() => {
     if (unsubscribe) unsubscribe()
+    stopTimer()
   })
+})
+
+// Restart timer if we just finished offline reveal
+watch(() => gameStore.offlineRevealIndex, (newVal) => {
+  if (newVal < 0) startTimer()
 })
 
 const currentTurnPlayer = computed(() => {
@@ -153,6 +188,30 @@ const getRoleColorClass = (role) => {
       <div class="text-center space-y-2">
         <p class="text-primary-600 font-black text-xs uppercase tracking-[0.3em]">{{ t('gameplay.discussion') }}</p>
         <h2 class="text-3xl font-black text-slate-800">{{ t('gameplay.speakOrder') }}</h2>
+      </div>
+
+      <!-- Discussion Timer -->
+      <div class="flex flex-col items-center justify-center space-y-4 py-4 animate-in fade-in zoom-in duration-700">
+        <div class="relative w-32 h-32 flex items-center justify-center">
+          <svg class="w-full h-full transform -rotate-90">
+            <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-100" />
+            <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" 
+              class="transition-all duration-1000"
+              :class="timer < 10 ? 'text-rose-500' : 'text-primary-500'"
+              :stroke-dasharray="364"
+              :stroke-dashoffset="364 - (364 * timer) / 60"
+            />
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-4xl font-black tabular-nums" :class="timer < 10 ? 'text-rose-600 animate-pulse' : 'text-slate-800'">
+              {{ timer }}
+            </span>
+            <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">{{ t('gameplay.seconds') }}</span>
+          </div>
+        </div>
+        <button v-if="isHost" @click="startTimer" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
+          {{ t('gameplay.resetTimer') }}
+        </button>
       </div>
 
       <div class="space-y-3">

@@ -66,20 +66,27 @@ const messages = {
       gameMode: 'Mode Game',
       online: 'Online (Banyak HP)',
       offline: 'Offline (Satu HP)',
+      customWords: 'Kata Kustom',
+      civilianWord: 'Kata Sipil',
+      undercoverWord: 'Kata Undercover',
+      customPlaceholder: 'Ketik kata...',
       undercover: 'Jumlah Undercover',
       mrWhite: 'Jumlah Mr. White',
       voting: 'Metode Voting',
       anonymous: 'Anonim',
-      realLife: 'Langsung (Real-life)',
-      spyPosition: 'Posisi Mata-mata',
-      spyAnyone: 'Siapa Saja',
+      anonymousDesc: 'Gilirkan HP ke setiap pemain',
+      realLife: 'Real-life (Dunia Nyata)',
+      realLifeDesc: 'Paling cepat (Host tentukan hasil)',
+      spyPosition: 'Posisi Pengkhianat',
+      spyAnyone: 'Bebas',
       spyNotFirst: 'Bukan pemain pertama',
       spyNotFirstTwo: 'Bukan dua pemain pertama',
-      infiltratorVisibility: 'Saling Kenal?',
-      visKnown: 'Ya, mereka saling tahu',
-      visSecret: 'Tidak, rahasiakan',
+      infiltratorVisibility: 'Pengkhianat saling kenal?',
+      visKnown: 'Ya, mereka kenal',
+      visSecret: 'Tidak, tetap rahasia',
       needPlayers: 'Butuh 4+ pemain untuk mulai',
-      host: 'Host'
+      host: 'Host',
+      addOffline: 'Tambah'
     },
     gameplay: {
       yourWord: 'KATA ANDA',
@@ -98,7 +105,9 @@ const messages = {
       speakOrder: 'Bicara Sesuai Urutan',
       starts: 'Memulai giliran',
       startVoting: 'MULAI VOTING',
-      onlyHost: 'Hanya Host yang bisa mulai voting'
+      onlyHost: 'Hanya Host yang bisa mulai voting',
+      seconds: 'detik',
+      resetTimer: 'Reset Timer'
     },
     rules: {
       title: 'Cara Bermain',
@@ -121,10 +130,12 @@ const messages = {
     },
     support: {
       title: 'Dukung Pengembang',
-      desc: 'Bantu kami menjaga server tetap menyala dan bebas iklan dengan mentraktir segelas kopi.',
-      button: 'Traktir Kopi',
-      thanks: 'Terima kasih atas dukungannya!',
-      stats: '{n} Game Telah Dimainkan'
+      desc: 'Game ini dibuat agar keceriaan keluarga tidak harus mahal. Jika momen tadi membuat kalian tertawa, bantu kami tetap gratis selamanya. ☕',
+      button: 'Dukung dengan Kopi',
+      local: 'Dukungan Lokal (Saweria)',
+      international: 'Dukungan Internasional (Ko-fi)',
+      thanks: 'Kalian luar biasa! Terima kasih atas dukungannya.',
+      stats: 'Telah menemani {n} keluarga tertawa bersama dan menghubungkan {m} sahabat.'
     }
   },
   EN: {
@@ -192,11 +203,17 @@ const messages = {
       gameMode: 'Game Mode',
       online: 'Online (Many Devices)',
       offline: 'Offline (One Device)',
+      customWords: 'Custom Words',
+      civilianWord: 'Civilian Word',
+      undercoverWord: 'Undercover Word',
+      customPlaceholder: 'Type word...',
       undercover: 'Undercover Count',
       mrWhite: 'Mr. White Count',
       voting: 'Voting Method',
       anonymous: 'Anonymous',
+      anonymousDesc: 'Pass the phone around',
       realLife: 'Real-life',
+      realLifeDesc: 'Fastest (Host decides result)',
       spyPosition: 'Spy Position',
       spyAnyone: 'Anyone',
       spyNotFirst: 'Not the first player',
@@ -205,7 +222,8 @@ const messages = {
       visKnown: 'Yes, they know',
       visSecret: 'No, keep it secret',
       needPlayers: 'Need 4+ players to start',
-      host: 'Host'
+      host: 'Host',
+      addOffline: 'Add'
     },
     gameplay: {
       yourWord: 'YOUR WORD',
@@ -224,7 +242,9 @@ const messages = {
       speakOrder: 'Speak in Order',
       starts: 'Starts the round',
       startVoting: 'START VOTING',
-      onlyHost: 'Only Host can start voting'
+      onlyHost: 'Only Host can start voting',
+      seconds: 'seconds',
+      resetTimer: 'Reset Timer'
     },
     rules: {
       title: 'How to Play',
@@ -247,10 +267,12 @@ const messages = {
     },
     support: {
       title: 'Support Developer',
-      desc: 'Help us keep the server alive and ad-free by buying us a coffee.',
-      button: 'Buy me a Coffee',
-      thanks: 'Thank you for your support!',
-      stats: '{n} Games Played'
+      desc: 'This game was made so that family joy should not be expensive. If that moment made you laugh, help us stay free forever. ☕',
+      button: 'Support with Coffee',
+      thanks: 'You guys are awesome! Thank you for your support.',
+      stats: 'Accompanied {n} families in laughter and connected {m} friends',
+      local: 'Local Support (Saweria)',
+      international: 'International Support (Ko-fi)',
     }
   }
 }

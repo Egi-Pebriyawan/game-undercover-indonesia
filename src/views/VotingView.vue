@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, watch, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import { useI18n } from 'vue-i18n'
+import { sfx } from '../utils/sfx'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -22,6 +23,7 @@ const isClosing = ref(false)
 
 watch(() => gameStore.isEliminationRevealing, (isRevealing) => {
   if (isRevealing) {
+    sfx.play('eliminate')
     showRole.value = false
     // Start local timer for reveal
     setTimeout(() => {
@@ -55,6 +57,7 @@ onMounted(async () => {
 })
 
 const handleVote = async (playerId) => {
+  sfx.play('click')
   if (isOffline.value) {
     const currentVoter = alivePlayers.value[offlineVoterIndex.value]
     offlineVotes.value[currentVoter.id] = playerId
