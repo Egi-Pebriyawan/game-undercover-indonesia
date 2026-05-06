@@ -1,17 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#3B82F6"></rect>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="8 8 48 48" width="512" height="512">
 
   <!-- Face -->
-  <circle cx="28" cy="30" r="10" fill="#FFFFFF"></circle>
-  
-  <!-- Eye (magnifier effect) -->
-  <circle cx="28" cy="30" r="6" fill="#93C5FD"></circle>
-  <circle cx="28" cy="30" r="3" fill="#1E3A8A"></circle>
+  <circle cx="32" cy="32" r="10" fill="#FFFFFF"></circle>
+
+  <!-- Eye -->
+  <circle cx="32" cy="32" r="6" fill="#93C5FD"></circle>
+  <circle cx="32" cy="32" r="3" fill="#1E3A8A"></circle>
+  <circle cx="34" cy="30" r="1.5" fill="#FFFFFF"></circle>
+
+  <!-- Kedip -->
+  <ellipse cx="32" cy="32" rx="6" ry="6" fill="#93C5FD">
+    <animateTransform attributeName="transform" type="scale" values="1 1; 1 0.1; 1 1" keyTimes="0; 0.1; 0.2" dur="4s" repeatCount="indefinite"></animateTransform>
+  </ellipse>
 
   <!-- Smile -->
-  <path d="M24 36 Q28 40 32 36" stroke="#1E3A8A" stroke-width="2" fill="none"></path>
+  <path d="M28 38 Q32 42 36 38" stroke="#1E3A8A" stroke-width="2" fill="none" stroke-linecap="round"></path>
 
   <!-- Hat -->
-  <rect x="18" y="14" width="20" height="6" rx="2" fill="#1E293B"></rect>
-  <ellipse cx="28" cy="20" rx="14" ry="5" fill="#1E293B"></ellipse>
+  <rect x="22" y="16" width="20" height="6" rx="2" fill="#0F172A"></rect>
+  <ellipse cx="32" cy="22" rx="14" ry="5" fill="#0F172A"></ellipse>
+
 </svg>

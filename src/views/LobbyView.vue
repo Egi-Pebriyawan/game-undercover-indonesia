@@ -83,6 +83,13 @@ const startGame = async () => {
   await gameStore.startGame()
 }
 
+const shareViaWA = () => {
+  const url = window.location.href
+  const roomCode = gameStore.currentRoom?.room_code
+  const text = `Ayo main Undercover! Masuk dengan kode ruangan: *${roomCode}*\n\nKlik link ini untuk bergabung: ${url}`
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+}
+
 watch(() => gameStore.error, (newError) => {
   if (newError) {
     gameStore.showNotify(newError, 'error')
