@@ -11,9 +11,15 @@ const { t, locale } = useI18n()
 const nickname = ref('')
 const roomCode = ref('')
 const selectedLang = ref('ID')
+const showConfirm = ref(false)
 
-const handleCreate = async () => {
-  if (!nickname.value) return alert(t('nickname') + ' required')
+const handleCreateClick = () => {
+  if (!nickname.value) return gameStore.showNotify(t('nickname') + ' required')
+  showConfirm.value = true
+}
+
+const confirmCreate = async () => {
+  showConfirm.value = false
   locale.value = selectedLang.value
   const room = await gameStore.createRoom(selectedLang.value)
   if (room) {
@@ -23,10 +29,14 @@ const handleCreate = async () => {
 }
 
 const handleJoin = async () => {
-  if (!nickname.value || !roomCode.value) return alert('Nickname & Room Code required')
+  if (!nickname.value) return gameStore.showNotify('Nickname required')
+  if (!roomCode.value) return gameStore.showNotify('Room Code required')
+  
   const player = await gameStore.joinRoom(roomCode.value.toUpperCase(), nickname.value)
   if (player) {
     router.push(`/room/${roomCode.value.toUpperCase()}`)
+  } else {
+    gameStore.showNotify(gameStore.error || 'Room not found')
   }
 }
 </script>
@@ -73,7 +83,7 @@ const handleJoin = async () => {
             </button>
           </div>
           
-          <button @click="handleCreate" class="btn-primary w-full group" :disabled="gameStore.loading">
+          <button @click="handleCreateClick" class="btn-primary w-full group" :disabled="gameStore.loading">
             <span class="flex items-center justify-center gap-2">
               {{ gameStore.loading ? 'Creating...' : t('createRoom') }}
               <svg v-if="!gameStore.loading" class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -92,5 +102,26 @@ const handleJoin = async () => {
         </div>
       </div>
     </div>
+
+    <!-- Confirmation Modal -->
+    <Teleport to="body">
+      <div v-if="showConfirm" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+        <div class="glass p-8 w-full max-w-sm space-y-6 animate-in fade-in zoom-in duration-300">
+          <div class="text-center">
+            <div class="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🏠</div>
+            <h3 class="text-xl font-bold text-slate-800">Yakin ingin membuat room?</h3>
+            <p class="text-slate-500 text-sm mt-2">Anda akan menjadi Host untuk permainan ini.</p>
+          </div>
+          <div class="flex gap-3">
+            <button @click="showConfirm = false" class="flex-1 py-3 px-4 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">
+              Tidak
+            </button>
+            <button @click="confirmCreate" class="flex-1 py-3 px-4 rounded-xl font-bold bg-primary-500 text-white shadow-lg shadow-primary-500/20 hover:bg-primary-600 transition-colors">
+              Ya
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

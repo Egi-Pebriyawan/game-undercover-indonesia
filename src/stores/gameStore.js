@@ -6,7 +6,8 @@ export const useGameStore = defineStore('game', {
     currentRoom: null,
     players: [],
     loading: false,
-    error: null
+    error: null,
+    notification: { show: false, message: '', type: 'error' }
   }),
 
   getters: {
@@ -17,6 +18,12 @@ export const useGameStore = defineStore('game', {
   },
 
   actions: {
+    showNotify(msg, type = 'error') {
+      this.notification = { show: true, message: msg, type }
+      setTimeout(() => {
+        this.notification.show = false
+      }, 3000)
+    },
     async createRoom(language = 'ID') {
       this.loading = true
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -44,6 +51,7 @@ export const useGameStore = defineStore('game', {
 
     async joinRoom(roomCode, nickname) {
       this.loading = true
+      this.error = null
       
       const { data: room, error: roomError } = await supabase
         .from('rooms')
@@ -93,6 +101,36 @@ export const useGameStore = defineStore('game', {
       return player
     },
 
+    async restoreSession() {
+      const sessionToken = localStorage.getItem('undercover_session')
+      const playerId = localStorage.getItem('undercover_player_id')
+      
+      if (!sessionToken || !playerId) return null
+
+      this.loading = true
+      
+      // 1. Get Player
+      const { data: player, error: pError } = await supabase
+        .from('players')
+        .select('*, rooms(*)')
+        .eq('id', playerId)
+        .eq('session_token', sessionToken)
+        .single()
+
+      if (pError || !player) {
+        localStorage.removeItem('undercover_session')
+        localStorage.removeItem('undercover_player_id')
+        this.loading = false
+        return null
+      }
+
+      // 2. Set State
+      this.currentRoom = player.rooms
+      await this.fetchPlayers()
+      this.loading = false
+      return player
+    },
+
     async subscribeToRoom() {
       if (!this.currentRoom) return
 
@@ -129,20 +167,21 @@ export const useGameStore = defineStore('game', {
     async startGame() {
       if (!this.currentRoom || this.players.length < 4) return
       this.loading = true
+      this.error = null
 
       // 1. Fetch Random Word Pair
-      const { data: wordPair, error: wordError } = await supabase
+      const { data: wordPairs, error: wordError } = await supabase
         .from('words_library')
         .select('*')
         .eq('language', this.currentRoom.language)
       
-      if (wordError || !wordPair.length) {
-        this.error = 'No words found for this language'
+      if (wordError || !wordPairs || !wordPairs.length) {
+        this.error = `No words found for language: ${this.currentRoom.language}`
         this.loading = false
         return
       }
 
-      const randomPair = wordPair[Math.floor(Math.random() * wordPair.length)]
+      const randomPair = wordPairs[Math.floor(Math.random() * wordPairs.length)]
 
       // 2. Distribute Roles
       const playerCount = this.players.length
@@ -153,7 +192,7 @@ export const useGameStore = defineStore('game', {
       
       // 1 Undercover
       const undercoverId = shuffledIds.pop()
-      roles[undercoverId] = { role: 'UNDERCOVER', word: randomPair.word_undercover }
+      roles[undercoverId] = { role: 'UNDERCOVER', word: randomPair.undercover_word }
 
       // 1 Mr White if players > 5
       if (playerCount > 5) {
@@ -163,43 +202,47 @@ export const useGameStore = defineStore('game', {
 
       // Rest are Civilians
       shuffledIds.forEach(id => {
-        roles[id] = { role: 'CIVILIAN', word: randomPair.word_civilian }
+        roles[id] = { role: 'CIVILIAN', word: randomPair.civilian_word }
       })
 
-      // 3. Update Players in DB
+      // 3. Update Players in DB (Parallel)
       const shuffledForOrder = [...playerIds].sort(() => Math.random() - 0.5)
       
-      for (const playerId of playerIds) {
-        const turnOrder = shuffledForOrder.indexOf(playerId)
-        await supabase
-          .from('players')
-          .update({
-            role: roles[playerId].role,
-            word: roles[playerId].word,
-            is_alive: true,
-            turn_order: turnOrder
-          })
-          .eq('id', playerId)
-      }
-
-      // 4. Set Room Status to PLAYING and set first turn
-      // The player with turn_order 0 starts
-      const firstTurnId = playerIds.find(id => shuffledForOrder.indexOf(id) === 0)
-      
-      const { error: roomError } = await supabase
-        .from('rooms')
-        .update({
-          status: 'PLAYING',
-          current_turn_player_id: firstTurnId,
-          current_round: 1
+      try {
+        const updatePromises = playerIds.map(playerId => {
+          const turnOrder = shuffledForOrder.indexOf(playerId)
+          return supabase
+            .from('players')
+            .update({
+              role: roles[playerId].role,
+              word: roles[playerId].word,
+              is_alive: true,
+              turn_order: turnOrder
+            })
+            .eq('id', playerId)
         })
-        .eq('id', this.currentRoom.id)
 
-      if (roomError) {
-        this.error = roomError.message
+        await Promise.all(updatePromises)
+
+        // 4. Set Room Status to PLAYING and set first turn
+        const firstTurnId = playerIds.find(id => shuffledForOrder.indexOf(id) === 0)
+        
+        const { error: roomError } = await supabase
+          .from('rooms')
+          .update({
+            status: 'PLAYING',
+            current_turn_player_id: firstTurnId,
+            current_round: 1
+          })
+          .eq('id', this.currentRoom.id)
+
+        if (roomError) throw new Error(roomError.message)
+
+      } catch (err) {
+        this.error = err.message
+      } finally {
+        this.loading = false
       }
-
-      this.loading = false
     },
 
     async nextTurn() {
