@@ -1,10 +1,18 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { t } = useI18n()
+
+watch(() => gameStore.currentRoom?.status, (newStatus) => {
+  if (newStatus === 'LOBBY') {
+    router.push(`/room/${gameStore.currentRoom.room_code}`)
+  }
+})
 
 onMounted(async () => {
   if (!gameStore.currentRoom) {
@@ -12,19 +20,34 @@ onMounted(async () => {
     return
   }
   await gameStore.fetchPlayers()
+  await gameStore.subscribeToRoom()
 })
 
-const winner = computed(() => {
-  const alivePlayers = gameStore.players.filter(p => p.is_alive)
-  const baddies = alivePlayers.filter(p => p.role === 'UNDERCOVER' || p.role === 'MR_WHITE')
+const winInfo = computed(() => {
+  const winnerRole = gameStore.currentRoom?.winner_role
   
-  if (baddies.length > 0) {
-    return 'Undercover / Mr. White'
+  if (winnerRole === 'BADDIES') {
+    return {
+      label: t('winner.baddies'),
+      color: 'text-rose-600',
+      bgColor: 'border-rose-500',
+      icon: '😈'
+    }
   }
-  return 'Civilians'
+  return {
+    label: t('winner.civilians'),
+    color: 'text-emerald-600',
+    bgColor: 'border-emerald-500',
+    icon: '🏆'
+  }
 })
 
-const restart = () => {
+const backToLobby = async () => {
+  await gameStore.resetRoom()
+  router.push(`/room/${gameStore.currentRoom.room_code}`)
+}
+
+const backToHome = () => {
   router.push('/')
 }
 </script>
@@ -40,16 +63,17 @@ const restart = () => {
         <h1 class="text-6xl font-black text-slate-800 mb-6 tracking-tighter">
           GAME OVER
         </h1>
-        <div class="glass p-10 inline-block border-b-8 border-primary-500 shadow-xl">
-          <p class="text-slate-400 uppercase tracking-[0.3em] text-[10px] font-black mb-3">The Winners Are</p>
-          <h2 class="text-5xl font-black text-primary-600 tracking-tight">{{ winner }}</h2>
+        <div class="glass p-10 px-16 inline-block shadow-2xl transform hover:scale-105 transition-transform border-b-[12px]" :class="winInfo.bgColor">
+          <div class="text-5xl mb-4 animate-bounce">{{ winInfo.icon }}</div>
+          <p class="text-slate-400 uppercase tracking-[0.4em] text-[11px] font-black mb-3">{{ t('subtitle') }}</p>
+          <h2 class="text-4xl md:text-6xl font-black tracking-tighter" :class="winInfo.color">{{ winInfo.label }}</h2>
         </div>
       </div>
 
       <div class="glass p-10">
         <h3 class="text-xl font-black text-slate-800 mb-8 flex items-center gap-3 uppercase tracking-wider">
           <span class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-xl shadow-inner border border-slate-100">📖</span>
-          Final Reveal
+          {{ t('roles.mrWhite') === 'Mr. White' ? 'Final Reveal' : 'Pengungkapan Akhir' }}
         </h3>
         <div class="space-y-4">
           <div 
@@ -64,22 +88,40 @@ const restart = () => {
               </div>
               <div class="text-left">
                 <p class="font-bold text-slate-800 leading-none">{{ player.nickname }}</p>
-                <span v-if="!player.is_alive" class="inline-block mt-2 text-[8px] font-black tracking-widest bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">Eliminated</span>
+                <span v-if="!player.is_alive" class="inline-block mt-2 text-[8px] font-black tracking-widest bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">{{ t('eliminated') }}</span>
               </div>
             </div>
             <div class="text-right">
               <p class="text-xs font-black uppercase tracking-widest mb-1" :class="player.role === 'CIVILIAN' ? 'text-primary-600' : 'text-primary-800'">
-                {{ player.role }}
+                {{ t(`roles.${player.role.toLowerCase()}`) }}
               </p>
               <p class="text-lg font-black text-slate-700 italic">"{{ player.word || '-' }}"</p>
             </div>
           </div>
         </div>
-      </div>
 
-      <button @click="restart" class="btn-primary px-16 text-lg shadow-xl shadow-primary-500/30">
-        PLAY AGAIN
-      </button>
+        <!-- Footer Actions -->
+        <div class="pt-8 w-full space-y-4">
+          <div v-if="gameStore.myPlayer?.id === gameStore.currentRoom?.host_id" class="space-y-3">
+            <button @click="backToLobby" class="btn-primary w-full py-4 text-lg shadow-xl shadow-primary-500/20">
+              {{ t('backToLobby') }}
+            </button>
+          </div>
+          
+          <button @click="backToHome" class="w-full py-4 rounded-2xl font-black text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-widest text-xs">
+            {{ t('backToHome') }}
+          </button>
+
+          <!-- Support Section -->
+          <div class="mt-12 pt-8 border-t border-slate-100 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{{ t('support.thanks') }}</p>
+            <a href="https://saweria.co/Pebri17" target="_blank" class="inline-flex items-center gap-3 bg-primary-50 px-6 py-3 rounded-2xl border border-primary-100 text-primary-600 hover:bg-primary-100 transition-all group">
+              <span class="text-xl group-hover:scale-125 transition-transform">☕</span>
+              <span class="font-black text-xs uppercase tracking-widest">{{ t('support.button') }}</span>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

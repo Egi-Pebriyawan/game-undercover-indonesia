@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +12,21 @@ const { t } = useI18n()
 watch(() => gameStore.currentRoom?.status, (newStatus) => {
   if (newStatus === 'PLAYING') {
     router.push(`/room/${gameStore.currentRoom.room_code}/play`)
+  }
+})
+
+// Auto-adjust settings based on player count
+watch(() => gameStore.players.length, (newCount) => {
+  if (!isHost()) return
+
+  // Auto-set Mr. White to 1 when players reach 3 (minimum for Mr. White)
+  if (newCount >= 3 && gameStore.currentRoom?.mr_white_count === 0) {
+    gameStore.updateRoomSettings({ mr_white_count: 1 })
+  }
+  
+  // Auto-set Undercover to 1 when players reach 5
+  if (newCount >= 5 && gameStore.currentRoom?.undercover_count === 0) {
+    gameStore.updateRoomSettings({ undercover_count: 1 })
   }
 })
 
@@ -28,8 +43,38 @@ onMounted(async () => {
   })
 })
 
+const newOfflineName = ref('')
+
 const isHost = () => {
   return gameStore.myPlayer?.id === gameStore.currentRoom?.host_id
+}
+
+const updateSettings = async (key, value) => {
+  if (!isHost()) return
+  
+  // Restriction: Need at least 5 players to change undercover counts
+  if (key === 'undercover_count' && gameStore.players.length < 5) {
+    gameStore.showNotify('Minimal 5 pemain untuk menambah Undercover', 'warning')
+    return
+  }
+
+  // Restriction: Need at least 3 players for Mr. White (minimum game size)
+  if (key === 'mr_white_count' && gameStore.players.length < 3) {
+    gameStore.showNotify('Minimal 3 pemain untuk mengaktifkan Mr. White', 'warning')
+    return
+  }
+  
+  await gameStore.updateRoomSettings({ [key]: value })
+}
+
+const addOfflinePlayer = async () => {
+  if (!newOfflineName.value) return
+  await gameStore.addOfflinePlayer(newOfflineName.value)
+  newOfflineName.value = ''
+}
+
+const removePlayer = async (player) => {
+  await gameStore.removePlayer(player.id)
 }
 
 const startGame = async () => {
@@ -69,33 +114,185 @@ watch(() => gameStore.error, (newError) => {
 
       <!-- Player List -->
       <div class="glass p-8">
-        <h2 class="text-lg font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-wider">
-          <span class="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
-            <svg class="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-          </span>
-          Joined Players
+        <h2 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center justify-between">
+          <span>{{ t('players') }} ({{ gameStore.players.length }})</span>
+          <span v-if="gameStore.currentRoom?.game_mode === 'offline'" class="text-primary-500 font-black">OFFLINE MODE</span>
         </h2>
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div 
-            v-for="player in gameStore.players" 
-            :key="player.id"
-            class="bg-white p-4 rounded-2xl flex items-center gap-4 border border-slate-100 hover:border-primary-200 hover:shadow-md transition-all duration-300 group"
-          >
-            <div class="w-12 h-12 rounded-2xl bg-slate-50 group-hover:bg-primary-50 flex items-center justify-center font-black text-lg text-slate-400 group-hover:text-primary-600 transition-colors shadow-inner">
-              {{ player.nickname[0].toUpperCase() }}
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <div class="flex flex-col gap-2 w-full col-span-full">
+            <div v-for="player in gameStore.players" :key="player.id" 
+              class="flex items-center justify-between p-4 glass-panel group transition-all hover:translate-x-1"
+              :class="{ 'border-primary-200 bg-primary-50/30': player.id === gameStore.myPlayer?.id }"
+            >
+              <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xl shadow-inner">
+                  {{ player.id === gameStore.currentRoom?.host_id ? '👑' : '👤' }}
+                </div>
+                <div>
+                  <p class="font-bold text-slate-800">{{ player.nickname }}</p>
+                  <p v-if="player.id === gameStore.myPlayer?.id" class="text-[10px] font-black text-primary-500 uppercase tracking-widest">You</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <div v-if="player.id === gameStore.currentRoom?.host_id" class="px-3 py-1 bg-primary-100 text-primary-600 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                  {{ t('settings.host') }}
+                </div>
+                <button 
+                  v-if="isHost() && player.id !== gameStore.myPlayer?.id" 
+                  @click="removePlayer(player)"
+                  class="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                >
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-slate-800 font-bold truncate">{{ player.nickname }}</p>
-              <span v-if="player.id === gameStore.currentRoom?.host_id" class="inline-block mt-0.5 text-[9px] font-black tracking-[0.15em] bg-yellow-400/10 text-yellow-600 px-2 py-0.5 rounded-md border border-yellow-400/20 uppercase">HOST</span>
+
+            <!-- Add Offline Player Input -->
+            <div v-if="isHost() && gameStore.currentRoom?.game_mode === 'offline'" class="mt-2 flex gap-2">
+              <input 
+                v-model="newOfflineName" 
+                @keyup.enter="addOfflinePlayer"
+                type="text" 
+                class="input-field flex-1 text-sm" 
+                :placeholder="t('nickname')"
+              >
+              <button @click="addOfflinePlayer" class="btn-primary !py-0 !px-6 text-sm">{{ t('welcome') === 'Welcome to Undercover' ? 'Add' : 'Tambah' }}</button>
             </div>
           </div>
         </div>
-        
-        <div v-if="gameStore.players.length === 0" class="text-center py-10 text-slate-400 font-medium italic">
-          Fetching player list...
+
+        <!-- Host Settings -->
+        <div v-if="isHost()" class="space-y-6">
+          <div class="flex items-center gap-3">
+            <div class="h-px flex-1 bg-slate-200"></div>
+            <h2 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">{{ t('settings.title') }}</h2>
+            <div class="h-px flex-1 bg-slate-200"></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Game Mode -->
+            <div class="glass-panel p-5 space-y-3 col-span-full">
+              <label class="text-sm font-bold text-slate-700">📱 {{ t('settings.gameMode') }}</label>
+              <div class="flex gap-2">
+                <button @click="updateSettings('game_mode', 'online')"
+                  class="flex-1 py-3 rounded-xl border-2 transition-all font-bold text-xs"
+                  :class="gameStore.currentRoom.game_mode === 'online' ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-white border-slate-100 text-slate-400'"
+                >
+                  {{ t('settings.online') }}
+                </button>
+                <button @click="updateSettings('game_mode', 'offline')"
+                  class="flex-1 py-3 rounded-xl border-2 transition-all font-bold text-xs"
+                  :class="gameStore.currentRoom.game_mode === 'offline' ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-white border-slate-100 text-slate-400'"
+                >
+                  {{ t('settings.offline') }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Undercover Count -->
+            <div class="glass-panel p-5 space-y-3">
+              <label class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                🕵️ {{ t('settings.undercover') }}
+              </label>
+              <div class="flex gap-2">
+                <button v-for="n in [0, 1, 2]" :key="n"
+                  @click="updateSettings('undercover_count', n)"
+                  class="flex-1 py-2 rounded-xl border-2 transition-all font-bold"
+                  :class="[
+                    gameStore.currentRoom.undercover_count === n ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200',
+                    (gameStore.players.length < 5) ? 'opacity-50 cursor-not-allowed' : ''
+                  ]"
+                >
+                  {{ n }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Mr White Count -->
+            <div class="glass-panel p-5 space-y-3">
+              <label class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                ⚪ {{ t('settings.mrWhite') }}
+              </label>
+              <div class="flex gap-2">
+                <button v-for="n in [0, 1]" :key="n"
+                  @click="updateSettings('mr_white_count', n)"
+                  class="flex-1 py-2 rounded-xl border-2 transition-all font-bold"
+                  :class="[
+                    gameStore.currentRoom.mr_white_count === n ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200',
+                    (gameStore.players.length < 3) ? 'opacity-50 cursor-not-allowed' : ''
+                  ]"
+                >
+                  {{ n }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Voting Method -->
+            <div class="glass-panel p-5 space-y-3">
+              <label class="text-sm font-bold text-slate-700">🗳️ {{ t('settings.voting') }}</label>
+              <div class="space-y-2">
+                <button @click="updateSettings('voting_method', 'anonymous')"
+                  class="w-full text-left px-4 py-3 rounded-xl border-2 transition-all"
+                  :class="gameStore.currentRoom.voting_method === 'anonymous' ? 'bg-primary-50 border-primary-500 text-primary-700 ring-2 ring-primary-500/10' : 'bg-white border-slate-100 text-slate-500'"
+                >
+                  <p class="font-bold text-sm">{{ t('settings.anonymous') }}</p>
+                  <p class="text-[10px] opacity-70">{{ t('settings.anonymous') === 'Anonymous' ? 'Pass the phone around' : 'Gilirkan HP ke setiap pemain' }}</p>
+                </button>
+                <button @click="updateSettings('voting_method', 'real-life')"
+                  class="w-full text-left px-4 py-3 rounded-xl border-2 transition-all"
+                  :class="gameStore.currentRoom.voting_method === 'real-life' ? 'bg-primary-50 border-primary-500 text-primary-700 ring-2 ring-primary-500/10' : 'bg-white border-slate-100 text-slate-500'"
+                >
+                  <p class="font-bold text-sm">{{ t('settings.realLife') }}</p>
+                  <p class="text-[10px] opacity-70">{{ t('settings.realLife') === 'Real-life' ? 'Fastest (Host decides result)' : 'Paling cepat (Host tentukan hasil)' }}</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- Spy Position -->
+            <div class="glass-panel p-5 space-y-3">
+              <label class="text-sm font-bold text-slate-700">🎭 {{ t('settings.spyPosition') }}</label>
+              <div class="space-y-2">
+                <select 
+                  :value="gameStore.currentRoom.spy_position"
+                  @change="updateSettings('spy_position', $event.target.value)"
+                  class="w-full bg-white border-2 border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-600 focus:border-primary-500 outline-none transition-all"
+                >
+                  <option value="anyone">{{ t('settings.spyAnyone') }}</option>
+                  <option value="not-first">{{ t('settings.spyNotFirst') }}</option>
+                  <option value="not-first-two">{{ t('settings.spyNotFirstTwo') }}</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Infiltrator Visibility -->
+            <div class="glass-panel p-5 space-y-3 md:col-span-2">
+              <label class="text-sm font-bold text-slate-700">🕵️ {{ t('settings.infiltratorVisibility') }}</label>
+              <div class="flex gap-4">
+                <button @click="updateSettings('infiltrator_visibility', 'known')"
+                  class="flex-1 py-3 rounded-xl border-2 transition-all font-bold text-xs"
+                  :class="gameStore.currentRoom.infiltrator_visibility === 'known' ? 'bg-primary-500 border-primary-500 text-white' : 'bg-white border-slate-100 text-slate-400'"
+                >
+                  {{ t('settings.visKnown') }}
+                </button>
+                <button @click="updateSettings('infiltrator_visibility', 'secret')"
+                  class="flex-1 py-3 rounded-xl border-2 transition-all font-bold text-xs"
+                  :class="gameStore.currentRoom.infiltrator_visibility === 'secret' ? 'bg-primary-500 border-primary-500 text-white' : 'bg-white border-slate-100 text-slate-400'"
+                >
+                  {{ t('settings.visSecret') }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="pt-8 space-y-4">
+          <div v-if="gameStore.players.length === 0" class="text-center py-10 text-slate-400 font-medium italic">
+            Fetching player list...
+          </div>
         </div>
       </div>
 
@@ -114,12 +311,12 @@ watch(() => gameStore.error, (newError) => {
           </button>
           <p v-if="gameStore.players.length < 4" class="text-primary-600/60 text-[11px] mt-4 font-black uppercase tracking-widest flex items-center gap-2">
             <span class="w-1.5 h-1.5 bg-primary-600 rounded-full animate-ping"></span>
-            Need 4+ players to start
+            {{ t('settings.needPlayers') }}
           </p>
         </div>
         <div v-else class="bg-primary-50 px-8 py-4 rounded-full border border-primary-100 flex items-center gap-4 text-primary-600 shadow-sm">
           <div class="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
-          <p class="font-black text-xs uppercase tracking-widest">Waiting for host...</p>
+          <p class="font-black text-xs uppercase tracking-widest">{{ t('waiting') }}</p>
         </div>
       </div>
     </div>
