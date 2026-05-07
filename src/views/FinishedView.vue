@@ -3,6 +3,8 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/gameStore'
 import { useI18n } from 'vue-i18n'
+import { sfx } from '../utils/sfx'
+import confetti from 'canvas-confetti'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -21,7 +23,27 @@ onMounted(async () => {
   }
   await gameStore.fetchPlayers()
   await gameStore.subscribeToRoom()
+
+  // Play sound and effects based on result
+  const winnerRole = gameStore.currentRoom?.winner_role
+  if (winnerRole === 'CIVILIANS') {
+    sfx.play('victory')
+    fireConfetti()
+  } else {
+    sfx.play('defeat')
+  }
 })
+
+const fireConfetti = () => {
+  const duration = 3000
+  const animationEnd = Date.now() + duration
+  const interval = setInterval(() => {
+    const timeLeft = animationEnd - Date.now()
+    if (timeLeft <= 0) return clearInterval(interval)
+    const count = 60 * (timeLeft / duration)
+    confetti({ particleCount: count, spread: 360, origin: { x: Math.random() * 0.6 + 0.2, y: Math.random() - 0.2 } })
+  }, 250)
+}
 
 const winInfo = computed(() => {
   const winnerRole = gameStore.currentRoom?.winner_role
@@ -115,10 +137,18 @@ const backToHome = () => {
           <!-- Support Section -->
           <div class="mt-12 pt-8 border-t border-slate-100 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
             <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{{ t('support.thanks') }}</p>
-            <a href="https://saweria.co/Pebri17" target="_blank" class="inline-flex items-center gap-3 bg-primary-50 px-6 py-3 rounded-2xl border border-primary-100 text-primary-600 hover:bg-primary-100 transition-all group">
-              <span class="text-xl group-hover:scale-125 transition-transform">☕</span>
-              <span class="font-black text-xs uppercase tracking-widest">{{ t('support.button') }}</span>
-            </a>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <!-- Saweria (Local) -->
+              <a href="https://saweria.co/Pebri17" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-amber-50 px-6 py-3 rounded-2xl border border-amber-100 text-amber-600 hover:bg-amber-100 hover:scale-105 transition-all group">
+                <span class="text-xl group-hover:rotate-12 transition-transform">🇮🇩</span>
+                <span class="font-black text-xs uppercase tracking-widest">{{ t('support.local') }}</span>
+              </a>
+              <!-- Ko-fi (International) -->
+              <a href="https://ko-fi.com/pebriyawan" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-blue-50 px-6 py-3 rounded-2xl border border-blue-100 text-blue-600 hover:bg-blue-100 hover:scale-105 transition-all group">
+                <span class="text-xl group-hover:rotate-12 transition-transform">🌎</span>
+                <span class="font-black text-xs uppercase tracking-widest">{{ t('support.international') }}</span>
+              </a>
+            </div>
           </div>
         </div>
       </div>

@@ -13,11 +13,14 @@ onMounted(async () => {
     const status = gameStore.currentRoom.status
     const code = gameStore.currentRoom.room_code
     
-    if (status === 'LOBBY') {
-      router.push(`/room/${code}`)
-    } else {
-      router.push(`/room/${code}/play`)
+    const routeMap = {
+      'LOBBY': `/room/${code}`,
+      'PLAYING': `/room/${code}/play`,
+      'VOTING': `/room/${code}/vote`,
+      'MR_WHITE_GUESS': `/room/${code}/guess`,
+      'FINISHED': `/room/${code}/finish`,
     }
+    router.push(routeMap[status] || '/')
   }
 })
 </script>

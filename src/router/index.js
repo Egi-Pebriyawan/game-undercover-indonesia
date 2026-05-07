@@ -1,10 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import LobbyView from '../views/LobbyView.vue'
-import GameplayView from '../views/GameplayView.vue'
-import VotingView from '../views/VotingView.vue'
-import GuessView from '../views/GuessView.vue'
-import FinishedView from '../views/FinishedView.vue'
+
+// Lazy load components for better performance
+const HomeView = () => import('../views/HomeView.vue')
+const LobbyView = () => import('../views/LobbyView.vue')
+const GameplayView = () => import('../views/GameplayView.vue')
+const VotingView = () => import('../views/VotingView.vue')
+const GuessView = () => import('../views/GuessView.vue')
+const FinishedView = () => import('../views/FinishedView.vue')
 
 const router = createRouter({
   history: createWebHistory(),

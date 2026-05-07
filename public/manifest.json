@@ -1,0 +1,16 @@
+{
+  "name": "Undercover Indonesia",
+  "short_name": "Undercover",
+  "description": "Game peran rahasia online gratis untuk keluarga dan teman",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png"
+    }
+  ]
+}

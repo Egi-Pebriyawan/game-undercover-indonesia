@@ -6,6 +6,7 @@ export const useGameStore = defineStore('game', {
     currentRoom: null,
     players: [],
     totalGames: 0,
+    totalPlayers: 0,
     loading: false,
     error: null,
     notification: { show: false, message: '', type: 'error' },
@@ -32,115 +33,111 @@ export const useGameStore = defineStore('game', {
       }, 3000)
     },
     async createRoom(language = 'ID') {
-      this.loading = true
-      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-      
-      const { data, error } = await supabase
-        .from('rooms')
-        .insert([{ 
-          room_code: roomCode, 
-          language, 
-          status: 'LOBBY' 
-        }])
-        .select()
-        .single()
+      try {
+        this.loading = true
+        this.error = null
+        const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+        
+        const { data, error } = await supabase
+          .from('rooms')
+          .insert([{ 
+            room_code: roomCode, 
+            language, 
+            status: 'LOBBY' 
+          }])
+          .select()
+          .single()
 
-      if (error) {
-        this.error = error.message
-        this.loading = false
+        if (error) throw error
+
+        this.currentRoom = data
+        return data
+      } catch (err) {
+        console.error('Create Room Error:', err)
+        this.showNotify('Gagal membuat ruangan. Periksa koneksi Anda.')
         return null
+      } finally {
+        this.loading = false
       }
-
-      this.currentRoom = data
-      this.loading = false
-      return data
     },
 
     async resetRoom() {
       if (!this.currentRoom) return
-      this.loading = true
-      
-      // 1. Reset Room Status
-      await supabase
-        .from('rooms')
-        .update({ 
-          status: 'LOBBY',
-          current_round: 1,
-          current_turn: 0
-        })
-        .eq('id', this.currentRoom.id)
-      
-      // 2. Reset All Players
-      await supabase
-        .from('players')
-        .update({ 
-          is_alive: true,
-          role: null,
-          word: null,
-          turn_order: null
-        })
-        .eq('room_id', this.currentRoom.id)
-      
-      // 3. Clear Votes for the room
-      await supabase
-        .from('votes')
-        .delete()
-        .eq('room_id', this.currentRoom.id)
-
-      await this.fetchPlayers()
-      this.loading = false
+      try {
+        this.loading = true
+        await Promise.all([
+          supabase
+            .from('rooms')
+            .update({ status: 'LOBBY', current_round: 1, current_turn: 0 })
+            .eq('id', this.currentRoom.id),
+          supabase
+            .from('players')
+            .update({ is_alive: true, role: null, word: null, turn_order: null })
+            .eq('room_id', this.currentRoom.id),
+          supabase
+            .from('votes')
+            .delete()
+            .eq('room_id', this.currentRoom.id),
+        ])
+        await this.fetchPlayers()
+      } catch (err) {
+        console.error('Reset Room Error:', err)
+        this.showNotify('Gagal mereset ruangan. Coba lagi.')
+      } finally {
+        this.loading = false
+      }
     },
 
     async joinRoom(roomCode, nickname) {
-      this.loading = true
-      this.error = null
-      
-      const { data: room, error: roomError } = await supabase
-        .from('rooms')
-        .select('*')
-        .eq('room_code', roomCode)
-        .single()
-
-      if (roomError || !room) {
-        this.error = 'Room not found'
-        this.loading = false
-        return null
-      }
-
-      const { data: player, error: playerError } = await supabase
-        .from('players')
-        .insert([{
-          room_id: room.id,
-          nickname,
-          session_token: Math.random().toString(36).substring(7)
-        }])
-        .select()
-        .single()
-
-      if (playerError) {
-        this.error = playerError.message
-        this.loading = false
-        return null
-      }
-
-      // If room has no host, set this player as host
-      if (!room.host_id) {
-        await supabase
-          .from('rooms')
-          .update({ host_id: player.id })
-          .eq('id', room.id)
+      try {
+        this.loading = true
+        this.error = null
         
-        room.host_id = player.id
-      }
+        const { data: room, error: roomError } = await supabase
+          .from('rooms')
+          .select('*')
+          .eq('room_code', roomCode.toUpperCase())
+          .single()
 
-      this.currentRoom = room
-      sessionStorage.setItem('undercover_session', player.session_token)
-      sessionStorage.setItem('undercover_player_id', player.id)
-      
-      await this.fetchPlayers()
-      
-      this.loading = false
-      return player
+        if (roomError || !room) {
+          throw new Error('Room not found')
+        }
+
+        const { data: player, error: playerError } = await supabase
+          .from('players')
+          .insert([{
+            room_id: room.id,
+            nickname,
+            session_token: Math.random().toString(36).substring(7)
+          }])
+          .select()
+          .single()
+
+        if (playerError) throw playerError
+
+        // If room has no host, set this player as host
+        if (!room.host_id) {
+          await supabase
+            .from('rooms')
+            .update({ host_id: player.id })
+            .eq('id', room.id)
+          
+          room.host_id = player.id
+        }
+
+        this.currentRoom = room
+        sessionStorage.setItem('undercover_session', player.session_token)
+        sessionStorage.setItem('undercover_player_id', player.id)
+        
+        await this.fetchPlayers()
+        return player
+      } catch (err) {
+        console.error('Join Room Error:', err)
+        this.showNotify(err.message === 'Room not found' ? 'Ruangan tidak ditemukan' : 'Gagal bergabung ke ruangan')
+        return null
+      } finally {
+        this.loading = false
+      }
     },
 
     async restoreSession() {
@@ -211,34 +208,48 @@ export const useGameStore = defineStore('game', {
       this.loading = true
       this.error = null
 
-      // 1. Get total word count for the language first to pick a random offset
-      const { count, error: countError } = await supabase
-        .from('words_library')
-        .select('*', { count: 'exact', head: true })
-        .eq('language', this.currentRoom.language)
+      let randomPair = null
 
-      if (countError || !count || count === 0) {
-        this.error = `No words found for language: ${this.currentRoom.language}`
-        this.loading = false
-        return
+      if (this.currentRoom.is_custom_words) {
+        if (!this.currentRoom.custom_word_civilian || !this.currentRoom.custom_word_undercover) {
+          this.showNotify('Kata kustom belum diisi lengkap!')
+          this.loading = false
+          return
+        }
+        randomPair = {
+          word_civilian: this.currentRoom.custom_word_civilian,
+          word_undercover: this.currentRoom.custom_word_undercover
+        }
+      } else {
+        // 1. Get total word count for the language first to pick a random offset
+        const { count, error: countError } = await supabase
+          .from('words_library')
+          .select('*', { count: 'exact', head: true })
+          .eq('language', this.currentRoom.language)
+
+        if (countError || !count || count === 0) {
+          this.error = `No words found for language: ${this.currentRoom.language}`
+          this.loading = false
+          return
+        }
+
+        // Pick a random offset and fetch just one pair
+        const randomOffset = Math.floor(Math.random() * count)
+        const { data: wordPairs, error: wordError } = await supabase
+          .from('words_library')
+          .select('*')
+          .eq('language', this.currentRoom.language)
+          .range(randomOffset, randomOffset)
+          .single()
+        
+        if (wordError || !wordPairs) {
+          this.error = `Failed to pick a random word pair`
+          this.loading = false
+          return
+        }
+
+        randomPair = wordPairs
       }
-
-      // Pick a random offset and fetch just one pair
-      const randomOffset = Math.floor(Math.random() * count)
-      const { data: wordPairs, error: wordError } = await supabase
-        .from('words_library')
-        .select('*')
-        .eq('language', this.currentRoom.language)
-        .range(randomOffset, randomOffset)
-        .single()
-      
-      if (wordError || !wordPairs) {
-        this.error = `Failed to pick a random word pair`
-        this.loading = false
-        return
-      }
-
-      const randomPair = wordPairs
 
       // 2. Distribute Roles
       const playerIds = this.players.map(p => p.id)
@@ -604,7 +615,9 @@ export const useGameStore = defineStore('game', {
       const civilianPlayer = this.players.find(p => p.role === 'CIVILIAN')
       const civilianWord = civilianPlayer?.word
       
-      console.log('Comparing guess:', guess, 'with word:', civilianWord)
+      if (import.meta.env.DEV) {
+        console.log('Comparing guess:', guess, 'with word:', civilianWord)
+      }
       
       if (guess && civilianWord && guess.toLowerCase().trim() === civilianWord.toLowerCase().trim()) {
         // Mr. White Wins
@@ -664,13 +677,18 @@ export const useGameStore = defineStore('game', {
 
     async fetchGlobalStats() {
       try {
-        const { count, error } = await supabase
+        // Fetch total rooms
+        const { count: roomCount } = await supabase
           .from('rooms')
           .select('*', { count: 'exact', head: true })
         
-        if (!error) {
-          this.totalGames = count || 0
-        }
+        // Fetch total players
+        const { count: playerCount } = await supabase
+          .from('players')
+          .select('*', { count: 'exact', head: true })
+        
+        this.totalGames = roomCount || 0
+        this.totalPlayers = playerCount || 0
       } catch (err) {
         console.error('Error fetching stats:', err)
       }
