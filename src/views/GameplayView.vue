@@ -1,131 +1,236 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useGameStore } from '../stores/gameStore'
-import { useI18n } from 'vue-i18n'
-import { sfx } from '../utils/sfx'
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { useRouter } from "vue-router";
+import { useGameStore } from "../stores/gameStore";
+import { useI18n } from "vue-i18n";
+import { sfx } from "../utils/sfx";
 
-const router = useRouter()
-const gameStore = useGameStore()
-const { t } = useI18n()
+const router = useRouter();
+const gameStore = useGameStore();
+const { t } = useI18n();
 
-const showWord = ref(false)
-const isStartingVoting = ref(false)
+const showWord = ref(false);
+const isStartingVoting = ref(false);
 
-watch(() => gameStore.currentRoom?.status, (newStatus) => {
-  if (newStatus === 'VOTING') {
-    router.push(`/room/${gameStore.currentRoom.room_code}/vote`)
-  } else if (newStatus === 'FINISHED') {
-    router.push(`/room/${gameStore.currentRoom.room_code}/finish`)
+watch(
+  () => gameStore.currentRoom?.status,
+  (newStatus) => {
+    if (newStatus === "VOTING") {
+      router.push(`/room/${gameStore.currentRoom.room_code}/vote`);
+    } else if (newStatus === "FINISHED") {
+      router.push(`/room/${gameStore.currentRoom.room_code}/finish`);
+    }
+  },
+);
+
+const timer = ref(0);
+let timerInterval = null;
+const timerAudio = ref(null);
+
+// Gameplay background music
+const gameplayAudio = ref(null);
+
+const discussionDuration = computed(() => {
+  const raw = gameStore.currentRoom?.discussion_duration;
+  // Normalize: null/undefined -> default 60
+  if (raw === undefined || raw === null) return 60;
+  return Number(raw);
+});
+
+const startTimer = (duration = discussionDuration.value) => {
+  stopTimer();
+  if (!duration || Number(duration) <= 0) {
+    timer.value = 0;
+    return;
   }
-})
 
-const timer = ref(60)
-let timerInterval = null
+  timer.value = Number(duration);
 
-const startTimer = () => {
-  stopTimer()
-  timer.value = 60
+  // Prepare timer audio (funny timer) but don't start immediately unless total < 60
+  try {
+    timerAudio.value = new Audio("/sounds/timer-funny.mp3");
+    timerAudio.value.loop = true;
+  } catch (e) {
+    timerAudio.value = null;
+  }
+
   timerInterval = setInterval(() => {
     if (timer.value > 0) {
-      timer.value--
+      timer.value--;
+
+      // Play short warning beeps as fallback
       if (timer.value === 10 || timer.value === 3) {
-        sfx.play('timer')
+        sfx.play("timer");
+      }
+
+      // Start funny timer audio when <= 60 seconds, or immediately if total < 60
+      if (timerAudio.value) {
+        if (duration <= 60 || timer.value <= 60) {
+          if (timerAudio.value.paused) timerAudio.value.play().catch(() => {});
+        }
       }
     } else {
-      stopTimer()
-      sfx.play('notification')
+      stopTimer();
+      sfx.play("notification");
     }
-  }, 1000)
-}
+  }, 1000);
+};
 
 const stopTimer = () => {
-  if (timerInterval) clearInterval(timerInterval)
-}
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  if (timerAudio.value) {
+    try {
+      timerAudio.value.pause();
+      timerAudio.value.currentTime = 0;
+    } catch (e) {}
+    timerAudio.value = null;
+  }
+};
 
 onMounted(async () => {
   if (!gameStore.currentRoom || !gameStore.myPlayer) {
-    router.push('/')
-    return
+    router.push("/");
+    return;
   }
 
-  const unsubscribe = await gameStore.subscribeToRoom()
-  
+  const unsubscribe = await gameStore.subscribeToRoom();
+
+  // Initialize gameplay background music with muted fix for autoplay
+  try {
+    gameplayAudio.value = new Audio("/sounds/reveal-card-amongus.mp3");
+    gameplayAudio.value.loop = true;
+    gameplayAudio.value.muted = true;
+    await gameplayAudio.value.play();
+    if (!gameStore.isMuted) {
+      gameplayAudio.value.muted = false;
+    }
+  } catch (e) {
+    console.warn("Failed to init gameplay audio", e);
+  }
+
   // Start timer if in discussion phase
-  if (gameStore.currentRoom?.game_mode === 'online' || gameStore.offlineRevealIndex < 0) {
-    startTimer()
+  if (gameStore.currentRoom?.game_mode === "online" || gameStore.offlineRevealIndex < 0) {
+    startTimer();
   }
 
   onUnmounted(() => {
-    if (unsubscribe) unsubscribe()
-    stopTimer()
-  })
-})
+    if (unsubscribe) unsubscribe();
+    stopTimer();
+    if (gameplayAudio.value) {
+      gameplayAudio.value.pause();
+      gameplayAudio.value.currentTime = 0;
+      gameplayAudio.value = null;
+    }
+  });
+});
 
 // Restart timer if we just finished offline reveal
-watch(() => gameStore.offlineRevealIndex, (newVal) => {
-  if (newVal < 0) startTimer()
-})
+watch(
+  () => gameStore.offlineRevealIndex,
+  (newVal) => {
+    if (newVal < 0) startTimer();
+  },
+);
+
+// React to mute changes from store
+watch(
+  () => gameStore.isMuted,
+  (muted) => {
+    try {
+      if (gameplayAudio.value) {
+        if (muted) {
+          gameplayAudio.value.pause();
+          gameplayAudio.value.currentTime = 0;
+        } else {
+          gameplayAudio.value.play().catch(() => {});
+        }
+      }
+    } catch (e) {}
+  },
+);
 
 const currentTurnPlayer = computed(() => {
-  return gameStore.players.find(p => p.id === gameStore.currentRoom?.current_turn_player_id)
-})
+  return gameStore.players.find((p) => p.id === gameStore.currentRoom?.current_turn_player_id);
+});
 
 const isMyTurn = computed(() => {
-  return gameStore.myPlayer?.id === gameStore.currentRoom?.current_turn_player_id
-})
+  return gameStore.myPlayer?.id === gameStore.currentRoom?.current_turn_player_id;
+});
 
 const handleStartVoting = async () => {
   try {
-    isStartingVoting.value = true
-    await gameStore.startVoting()
+    isStartingVoting.value = true;
+    await gameStore.startVoting();
     // Small delay to allow state to settle
     setTimeout(() => {
-      if (gameStore.currentRoom?.status === 'VOTING') {
-        router.push(`/room/${gameStore.currentRoom.room_code}/vote`)
+      if (gameStore.currentRoom?.status === "VOTING") {
+        router.push(`/room/${gameStore.currentRoom.room_code}/vote`);
       }
-    }, 100)
+    }, 100);
   } catch (err) {
-    console.error(err)
+    console.error(err);
   } finally {
-    isStartingVoting.value = false
+    isStartingVoting.value = false;
   }
-}
+};
 
 const isHost = computed(() => {
-  return gameStore.myPlayer?.id === gameStore.currentRoom?.host_id
-})
+  return gameStore.myPlayer?.id === gameStore.currentRoom?.host_id;
+});
 
 const sortedPlayers = computed(() => {
-  return [...gameStore.players]
-    .filter(p => p.is_alive)
-    .sort((a, b) => (a.turn_order || 0) - (b.turn_order || 0))
-})
+  return [...gameStore.players].filter((p) => p.is_alive).sort((a, b) => (a.turn_order || 0) - (b.turn_order || 0));
+});
 
 const currentPlayerRevealing = computed(() => {
-  if (gameStore.offlineRevealIndex < 0) return null
-  return sortedPlayers.value[gameStore.offlineRevealIndex]
-})
+  if (gameStore.offlineRevealIndex < 0) return null;
+  return sortedPlayers.value[gameStore.offlineRevealIndex];
+});
 
 const revealRole = () => {
-  gameStore.setRevealed(true)
-}
+  gameStore.setRevealed(true);
+};
 
 const hideAndNext = async () => {
-  await gameStore.nextOfflineReveal()
-}
+  await gameStore.nextOfflineReveal();
+};
 
 const getRoleColorClass = (role) => {
-  if (gameStore.currentRoom?.infiltrator_visibility === 'secret' && role === 'UNDERCOVER') {
-    return 'text-emerald-600 bg-emerald-50 border-emerald-100'
+  if (gameStore.currentRoom?.infiltrator_visibility === "secret" && role === "UNDERCOVER") {
+    return "text-emerald-600 bg-emerald-50 border-emerald-100";
   }
   switch (role) {
-    case 'CIVILIAN': return 'text-emerald-600 bg-emerald-50 border-emerald-100'
-    case 'UNDERCOVER': return 'text-rose-600 bg-rose-50 border-rose-100'
-    case 'MR_WHITE': return 'text-slate-600 bg-slate-50 border-slate-200'
-    default: return 'text-primary-600 bg-primary-50 border-primary-100'
+    case "CIVILIAN":
+      return "text-emerald-600 bg-emerald-50 border-emerald-100";
+    case "UNDERCOVER":
+      return "text-rose-600 bg-rose-50 border-rose-100";
+    case "MR_WHITE":
+      return "text-slate-600 bg-slate-50 border-slate-200";
+    default:
+      return "text-primary-600 bg-primary-50 border-primary-100";
   }
-}
+};
+
+const displayRoleText = (playerRole) => {
+  if (!playerRole) return "";
+  // Mr White always sees their role
+  if (playerRole === "MR_WHITE") return t("roles.mrWhite") === "Mr. White" ? "Mr. White" : t(`roles.${playerRole.toLowerCase()}`);
+
+  // If traitors do NOT know each other, hide exact role for Civilian/Undercover
+  if (gameStore.currentRoom && gameStore.currentRoom.traitors_know_each_other === false) {
+    return "Role disembunyikan. Anda bisa saja Civilian / Undercover.";
+  }
+
+  // Fallback to existing visibility rules
+  if (playerRole === "UNDERCOVER" && gameStore.currentRoom?.infiltrator_visibility === "secret") {
+    return t("roles.civilian");
+  }
+
+  return t(`roles.${playerRole.toLowerCase()}`);
+};
 </script>
 
 <template>
@@ -137,46 +242,38 @@ const getRoleColorClass = (role) => {
     <!-- Offline Reveal Phase -->
     <div v-if="gameStore.currentRoom?.game_mode === 'offline' && gameStore.offlineRevealIndex >= 0" class="flex flex-col items-center space-y-10 w-full max-w-md animate-in fade-in zoom-in duration-500">
       <div class="text-center space-y-2">
-        <p class="text-primary-600 font-black text-xs uppercase tracking-[0.3em] opacity-60">{{ t('gameplay.passPhone') }}</p>
+        <p class="text-primary-600 font-black text-xs uppercase tracking-[0.3em] opacity-60">{{ t("gameplay.passPhone") }}</p>
         <h2 class="text-5xl font-black text-slate-800 tracking-tight">{{ currentPlayerRevealing?.nickname }}</h2>
       </div>
 
       <div class="w-72 h-96 perspective-1000">
-        <div class="w-full h-full glass flex flex-col items-center justify-center p-8 text-center transition-all duration-700 bg-white shadow-2xl relative overflow-hidden"
-          :class="gameStore.isRevealed ? 'ring-2 ring-primary-100' : ''"
-        >
+        <div class="w-full h-full glass flex flex-col items-center justify-center p-8 text-center transition-all duration-700 bg-white shadow-2xl relative overflow-hidden" :class="gameStore.isRevealed ? 'ring-2 ring-primary-100' : ''">
           <template v-if="!gameStore.isRevealed">
             <div class="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-5xl mb-8 shadow-inner border border-slate-100 animate-bounce">🤫</div>
-            <button @click="revealRole" class="btn-primary w-full py-4 text-lg shadow-xl shadow-primary-500/30">{{ t('gameplay.revealRole') }}</button>
-            <p class="mt-6 text-[10px] text-slate-400 font-black uppercase tracking-widest">{{ t('gameplay.confidential') }}</p>
+            <button @click="revealRole" class="btn-primary w-full py-4 text-lg shadow-xl shadow-primary-500/30">{{ t("gameplay.revealRole") }}</button>
+            <p class="mt-6 text-[10px] text-slate-400 font-black uppercase tracking-widest">{{ t("gameplay.confidential") }}</p>
           </template>
           <template v-else>
             <div class="absolute inset-0 opacity-5 pointer-events-none">
               <div class="absolute inset-0 bg-gradient-to-br from-primary-500 to-transparent"></div>
             </div>
-            
-            <div class="px-6 py-2 rounded-full border font-black text-[10px] uppercase tracking-[0.3em] mb-6 animate-in slide-in-from-top-4"
-              :class="getRoleColorClass(currentPlayerRevealing?.role)"
-            >
-              {{ 
-                currentPlayerRevealing?.role === 'UNDERCOVER' && gameStore.currentRoom?.infiltrator_visibility === 'secret'
-                ? t('roles.civilian')
-                : t(`roles.${currentPlayerRevealing?.role.toLowerCase()}`)
-              }}
+
+            <div class="px-6 py-2 rounded-full border font-black text-[10px] uppercase tracking-[0.3em] mb-6 animate-in slide-in-from-top-4" :class="getRoleColorClass(currentPlayerRevealing?.role)">
+              {{ displayRoleText(currentPlayerRevealing?.role) }}
             </div>
 
             <div class="h-px w-12 bg-slate-100 mb-8"></div>
-            
+
             <h3 class="text-5xl font-black text-slate-800 mb-4 animate-in zoom-in duration-500 tracking-tight">
-              {{ currentPlayerRevealing?.word || '???' }}
+              {{ currentPlayerRevealing?.word || "???" }}
             </h3>
-            
+
             <p v-if="currentPlayerRevealing?.role === 'MR_WHITE'" class="text-xs text-slate-400 font-medium italic mb-4">
-              {{ t('gameplay.mrWhiteDesc') }}
+              {{ t("gameplay.mrWhiteDesc") }}
             </p>
 
             <button @click="hideAndNext" class="mt-10 bg-slate-900 text-white font-black py-4 px-8 rounded-2xl w-full hover:bg-black transition-all shadow-lg active:scale-95">
-              {{ t('gameplay.seen') }}
+              {{ t("gameplay.seen") }}
             </button>
           </template>
         </div>
@@ -186,36 +283,44 @@ const getRoleColorClass = (role) => {
     <!-- Discussion Phase (Turn List) -->
     <div v-else class="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
       <div class="text-center space-y-2">
-        <p class="text-primary-600 font-black text-xs uppercase tracking-[0.3em]">{{ t('gameplay.discussion') }}</p>
-        <h2 class="text-3xl font-black text-slate-800">{{ t('gameplay.speakOrder') }}</h2>
+        <p class="text-primary-600 font-black text-xs uppercase tracking-[0.3em]">{{ t("gameplay.discussion") }}</p>
+        <h2 class="text-3xl font-black text-slate-800">{{ t("gameplay.speakOrder") }}</h2>
       </div>
 
       <!-- Discussion Timer -->
-      <div class="flex flex-col items-center justify-center space-y-4 py-4 animate-in fade-in zoom-in duration-700">
+      <div v-if="discussionDuration > 0" class="flex flex-col items-center justify-center space-y-4 py-4 animate-in fade-in zoom-in duration-700">
         <div class="relative w-32 h-32 flex items-center justify-center">
           <svg class="w-full h-full transform -rotate-90">
             <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-100" />
-            <circle cx="64" cy="64" r="58" stroke="currentColor" stroke-width="8" fill="transparent" 
+            <circle
+              cx="64"
+              cy="64"
+              r="58"
+              stroke="currentColor"
+              stroke-width="8"
+              fill="transparent"
               class="transition-all duration-1000"
               :class="timer < 10 ? 'text-rose-500' : 'text-primary-500'"
               :stroke-dasharray="364"
-              :stroke-dashoffset="364 - (364 * timer) / 60"
+              :stroke-dashoffset="364 - (364 * timer) / (discussionDuration || 60)"
             />
           </svg>
           <div class="absolute inset-0 flex flex-col items-center justify-center">
             <span class="text-4xl font-black tabular-nums" :class="timer < 10 ? 'text-rose-600 animate-pulse' : 'text-slate-800'">
               {{ timer }}
             </span>
-            <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">{{ t('gameplay.seconds') }}</span>
+            <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">{{ t("gameplay.seconds") }}</span>
           </div>
         </div>
         <button v-if="isHost" @click="startTimer" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest transition-all active:scale-95">
-          {{ t('gameplay.resetTimer') }}
+          {{ t("gameplay.resetTimer") }}
         </button>
       </div>
 
       <div class="space-y-3">
-        <div v-for="(player, index) in sortedPlayers" :key="player.id" 
+        <div
+          v-for="(player, index) in sortedPlayers"
+          :key="player.id"
           class="glass-panel p-4 flex items-center justify-between group hover:border-primary-300 transition-all duration-300"
           :class="index === 0 ? 'ring-2 ring-primary-500/10 border-primary-200 bg-white/80' : 'bg-white/40'"
         >
@@ -225,42 +330,75 @@ const getRoleColorClass = (role) => {
             </div>
             <div>
               <p class="font-black text-slate-800">{{ player.nickname }}</p>
-              <p v-if="index === 0" class="text-[10px] font-black text-primary-500 uppercase tracking-widest">{{ t('gameplay.starts') }}</p>
+              <p v-if="index === 0" class="text-[10px] font-black text-primary-500 uppercase tracking-widest">{{ t("gameplay.starts") }}</p>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Host Action -->
-      <div v-if="isHost" class="pt-6">
-        <button 
-          @click="handleStartVoting" 
-          :disabled="isStartingVoting"
-          class="btn-primary w-full py-5 text-lg shadow-xl shadow-primary-500/20 group disabled:opacity-50"
-        >
+      <div v-if="isHost" class="pt-6 space-y-4">
+        <!-- Discussion Duration Settings -->
+        <div class="glass-panel p-4 space-y-3">
+          <label class="text-sm font-bold text-slate-700">⏱️ Discussion Duration</label>
+          <div class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                @click="gameStore.updateRoomSettings({ discussion_duration: 0 })"
+                class="py-2 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="gameStore.currentRoom.discussion_duration === 0 ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-slate-500 border-slate-100'"
+              >
+                No Timer
+              </button>
+              <button
+                @click="gameStore.updateRoomSettings({ discussion_duration: 30 })"
+                class="py-2 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="gameStore.currentRoom.discussion_duration === 30 ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-slate-500 border-slate-100'"
+              >
+                30s
+              </button>
+              <button
+                @click="gameStore.updateRoomSettings({ discussion_duration: 60 })"
+                class="py-2 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="gameStore.currentRoom.discussion_duration === 60 ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-slate-500 border-slate-100'"
+              >
+                1m
+              </button>
+              <button
+                @click="gameStore.updateRoomSettings({ discussion_duration: 180 })"
+                class="py-2 rounded-xl border-2 font-bold text-sm transition-all"
+                :class="gameStore.currentRoom.discussion_duration === 180 ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-slate-500 border-slate-100'"
+              >
+                3m
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button @click="handleStartVoting" :disabled="isStartingVoting" class="btn-primary w-full py-5 text-lg shadow-xl shadow-primary-500/20 group disabled:opacity-50">
           <span class="flex items-center justify-center gap-3">
-            {{ isStartingVoting ? '...' : t('gameplay.startVoting') }}
+            {{ isStartingVoting ? "..." : t("gameplay.startVoting") }}
             <svg v-if="!isStartingVoting" class="w-6 h-6 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
           </span>
         </button>
-        <p class="text-center mt-4 text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">{{ t('gameplay.onlyHost') }}</p>
+        <p class="text-center mt-4 text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">{{ t("gameplay.onlyHost") }}</p>
       </div>
 
       <!-- Secret Word (Sticky at bottom during discussion) -->
       <div v-if="gameStore.currentRoom?.game_mode === 'online'" class="pt-10">
         <div class="glass-panel p-6 bg-slate-900 border-slate-800 text-white flex items-center justify-between shadow-2xl">
           <div class="space-y-1">
-            <p class="text-[10px] font-black text-primary-400 uppercase tracking-widest">{{ t('word') }}</p>
+            <p class="text-[10px] font-black text-primary-400 uppercase tracking-widest">{{ t("word") }}</p>
             <h4 class="text-xl font-black tracking-tight" :class="showWord ? 'blur-0' : 'blur-md select-none transition-all duration-500'">
-              {{ gameStore.myPlayer?.word || '???' }}
+              {{ gameStore.myPlayer?.word || "???" }}
             </h4>
           </div>
-          <button 
-            @touchstart="showWord = true" 
+          <button
+            @touchstart="showWord = true"
             @touchend="showWord = false"
-            @mousedown="showWord = true" 
+            @mousedown="showWord = true"
             @mouseup="showWord = false"
             @mouseleave="showWord = false"
             class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors active:scale-90"
