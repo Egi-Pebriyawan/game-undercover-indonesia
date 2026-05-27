@@ -1,89 +1,125 @@
 <script setup>
+// Mengimpor fungsi reaktivitas (ref, watch) dan hook lifecycle dari Vue 3
 import { ref, watch, onMounted } from 'vue'
+// Mengimpor hook useRouter untuk navigasi halaman secara programmatic
 import { useRouter } from 'vue-router'
+// Mengimpor global game store Pinia untuk mengakses fungsi game
 import { useGameStore } from '../stores/gameStore'
+// Mengimpor hook Vue I18n untuk lokalisasi teks multibahasa
 import { useI18n } from 'vue-i18n'
-
+// Mengimpor manager SFX suara lokal
 import { sfx } from '../utils/sfx'
 
+// Inisialisasi router navigasi
 const router = useRouter()
+// Mengakses state global game
 const gameStore = useGameStore()
+// Mengambil fungsi penerjemahan i18n dan locale aktif saat ini
 const { t, locale } = useI18n()
 
+// Ref reaktif untuk menampung nama panggilan pemain
 const nickname = ref('')
+// Ref reaktif untuk kode ruangan (room code) yang ingin dimasuki
 const roomCode = ref('')
+// Ref reaktif untuk pilihan bahasa default ('ID' atau 'EN')
 const selectedLang = ref('ID')
+// Ref reaktif untuk memunculkan modal konfirmasi pembuatan room
 const showConfirm = ref(false)
+// Ref reaktif untuk memunculkan modal bantuan cara bermain (rules)
 const showRules = ref(false)
+// Ref reaktif untuk memunculkan opsi dukung pengembang
 const showSupportMenu = ref(false)
 
+// Ref status mute suara
 const isMuted = ref(sfx.isMuted())
+// Fungsi toggle status suara
 const toggleMute = () => {
   isMuted.value = sfx.toggleMute()
 }
 
-// Watch for manual language toggle to update UI instantly
+// Memantau perubahan pilihan bahasa untuk memperbarui teks UI secara instan
 watch(selectedLang, (newLang) => {
   locale.value = newLang
 })
 
+// Dipanggil saat halaman beranda pertama kali dirender
 onMounted(async () => {
+  // Simpan setelan bahasa aktif ke local storage
   localStorage.setItem('locale', locale.value)
+  // Ambil data statistik game global (total games, total players) dari database Supabase
   await gameStore.fetchGlobalStats()
 })
 
+// Memproses klik tombol Buat Room (validasi nama pemain)
 const handleCreateClick = () => {
   const name = nickname.value.trim()
+  // Validasi jika nama kosong
   if (!name) return gameStore.showNotify(t('nickname') + ' required')
+  // Validasi jika nama kurang dari 2 karakter
   if (name.length < 2) return gameStore.showNotify('Nickname minimal 2 karakter')
+  // Validasi jika nama lebih dari 15 karakter
   if (name.length > 15) return gameStore.showNotify('Nickname maksimal 15 karakter')
   
-  nickname.value = name // update with trimmed name
+  // Set nama yang sudah di-trim kembali ke variabel input
+  nickname.value = name 
+  // Tampilkan modal konfirmasi pembuatan room
   showConfirm.value = true
 }
 
+// Fungsi konfirmasi setelah klik Ya di modal pembuatan room
 const confirmCreate = async () => {
   showConfirm.value = false
   locale.value = selectedLang.value
+  // Buat kamar baru di DB menggunakan bahasa pilihan
   const room = await gameStore.createRoom(selectedLang.value)
   if (room) {
+    // Masukkan host ke dalam kamar yang baru dibuat
     await gameStore.joinRoom(room.room_code, nickname.value)
+    // Putar suara notifikasi
     sfx.play('notification')
+    // Navigasi ke halaman lobi kamar
     router.push(`/room/${room.room_code}`)
   }
 }
 
+// Memproses klik tombol Gabung Room
 const handleJoin = async () => {
   const name = nickname.value.trim()
+  // Validasi nama panggilan
   if (!name) return gameStore.showNotify(t('nickname') + ' required')
   if (name.length < 2) return gameStore.showNotify('Nickname minimal 2 karakter')
   if (name.length > 15) return gameStore.showNotify('Nickname maksimal 15 karakter')
+  // Validasi kode ruangan
   if (!roomCode.value) return gameStore.showNotify(t('roomCode') + ' required')
   
-  nickname.value = name // update with trimmed name
+  nickname.value = name 
   
+  // Daftarkan pemain ke database room terkait
   const player = await gameStore.joinRoom(roomCode.value.toUpperCase(), nickname.value)
   if (player && gameStore.currentRoom) {
-    // Sync local language with room language
+    // Sinkronisasi bahasa lokal dengan bahasa default room yang dimasuki
     locale.value = gameStore.currentRoom.language || 'ID'
+    // Navigasi ke halaman lobi kamar
     router.push(`/room/${roomCode.value.toUpperCase()}`)
   } else {
+    // Tampilkan notifikasi jika room tidak ditemukan
     gameStore.showNotify(gameStore.error || 'Room not found')
   }
 }
 </script>
 
+<!-- Tampilan Beranda Utama -->
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden bg-slate-50/50">
-    <!-- Decorative background elements -->
+    <!-- Elemen dekorasi latar belakang blur -->
     <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
     <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary-600/5 rounded-full blur-3xl"></div>
     
-    <!-- Support & Help Buttons -->
+    <!-- Tombol utilitas melayang di pojok kanan bawah -->
     <div class="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-[60] flex flex-col items-end gap-3">
-      <!-- Expanded Menu -->
+      <!-- Menu Dukungan yang Diperluas -->
       <div v-if="showSupportMenu" class="flex flex-col items-end gap-2 mb-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <!-- Ko-fi (International) -->
+        <!-- Dukungan Ko-fi (Internasional) -->
         <a href="https://ko-fi.com/pebriyawan" target="_blank" 
           class="flex items-center gap-3 bg-white border-2 border-blue-100 p-2 pr-6 rounded-2xl shadow-xl hover:shadow-blue-500/10 hover:-translate-x-1 transition-all group"
         >
@@ -96,7 +132,7 @@ const handleJoin = async () => {
           </div>
         </a>
 
-        <!-- Saweria (Local) -->
+        <!-- Dukungan Saweria (Lokal) -->
         <a href="https://saweria.co/Pebri17" target="_blank" 
           class="flex items-center gap-3 bg-white border-2 border-amber-100 p-2 pr-6 rounded-2xl shadow-xl hover:shadow-amber-500/10 hover:-translate-x-1 transition-all group"
         >
@@ -110,7 +146,7 @@ const handleJoin = async () => {
         </a>
       </div>
 
-      <!-- Main Toggle Button -->
+      <!-- Tombol utama Donasi / Kopi melayang -->
       <button 
         @click="showSupportMenu = !showSupportMenu" 
         class="flex items-center gap-3 bg-white border-2 p-2 md:pr-6 rounded-full shadow-xl transition-all group"
@@ -127,7 +163,7 @@ const handleJoin = async () => {
         </div>
       </button>
       
-      <!-- Mute Toggle -->
+      <!-- Tombol mute suara latar -->
       <button 
         @click="toggleMute"
         class="w-12 h-12 md:w-14 md:h-14 bg-white border-2 border-slate-100 text-slate-400 rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-all group"
@@ -136,7 +172,7 @@ const handleJoin = async () => {
         <span class="text-xl md:text-2xl">{{ isMuted ? '🔇' : '🔊' }}</span>
       </button>
 
-      <!-- Help Button -->
+      <!-- Tombol bantuan cara bermain (Rules) -->
       <button 
         @click="showRules = true"
         class="w-12 h-12 md:w-14 md:h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-slate-900/30 hover:scale-110 hover:rotate-3 transition-all group"
@@ -146,7 +182,7 @@ const handleJoin = async () => {
     </div>
 
     <div class="z-10 w-full max-w-2xl flex flex-col items-center">
-      <!-- Title Section -->
+      <!-- Judul game utama -->
       <div class="flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000 mb-4 text-center">
         <h1 class="text-5xl md:text-8xl font-black text-slate-800 tracking-tighter mb-0 leading-none">
           UNDERCOVER
@@ -155,7 +191,7 @@ const handleJoin = async () => {
           {{ t('subtitle') }}
         </p>
 
-        <!-- Personal & Touching Stats (More Compact) -->
+        <!-- Informasi statistik global yang menyentuh hati -->
         <div class="mt-4 px-6 py-3 bg-white/60 backdrop-blur-md rounded-2xl border border-white shadow-sm max-w-xs md:max-w-md relative">
           <span class="absolute -top-2 -left-2 text-lg animate-pulse">❤️</span>
           <span class="absolute -bottom-2 -right-2 text-lg">👨‍👩‍👧‍👦</span>
@@ -168,16 +204,17 @@ const handleJoin = async () => {
         </div>
       </div>
 
-      <!-- Main Interaction Card (More Compact) -->
+      <!-- Kartu formulir beranda utama -->
       <div class="glass p-6 md:p-8 w-full max-w-sm md:max-w-md space-y-5 md:space-y-6 shadow-2xl relative border-t-4 border-primary-500">
-        <!-- Nickname Input -->
+        <!-- Input Nama Panggilan -->
         <div class="space-y-1.5">
           <label class="block text-[10px] font-black text-slate-400 tracking-widest uppercase">{{ t('nickname') }}</label>
           <input id="nickname" v-model="nickname" type="text" class="input-field w-full py-3 text-base" :placeholder="t('nicknamePlaceholder')">
         </div>
 
-        <!-- Create Section -->
+        <!-- Bagian Pembuatan Kamar Baru -->
         <div class="pt-4 border-t border-slate-100 space-y-4">
+          <!-- Pilihan Bahasa Kamar (ID / EN) -->
           <div class="grid grid-cols-2 gap-2 bg-slate-100/50 p-1.5 rounded-xl border border-slate-200">
             <button 
               @click="selectedLang = 'ID'"
@@ -201,14 +238,17 @@ const handleJoin = async () => {
             </button>
           </div>
           
+          <!-- Tombol Buat Room -->
           <button @click="handleCreateClick" class="btn-primary w-full py-3.5 text-sm uppercase tracking-[0.1em] font-black group" :disabled="gameStore.loading">
             {{ gameStore.loading ? '...' : t('createRoom') }}
           </button>
         </div>
 
-        <!-- Join Section -->
+        <!-- Bagian Penggabungan ke Kamar yang Sudah Ada -->
         <div class="pt-4 border-t border-slate-100 space-y-3">
+          <!-- Input Kode Kamar -->
           <input id="roomCode" v-model="roomCode" type="text" class="input-field w-full py-3 text-center uppercase tracking-[0.3em] font-black text-sm" :placeholder="t('roomCodePlaceholder')" maxlength="6">
+          <!-- Tombol Gabung Room -->
           <button @click="handleJoin" class="w-full py-3 rounded-xl font-black text-slate-500 hover:text-primary-600 hover:bg-primary-50 transition-all text-[11px] uppercase tracking-widest border border-dashed border-slate-200" :disabled="gameStore.loading">
             {{ t('joinRoom') }}
           </button>
@@ -216,7 +256,7 @@ const handleJoin = async () => {
       </div>
     </div>
 
-    <!-- Confirmation Modal -->
+    <!-- Modal Konfirmasi Pembuatan Kamar (Teleport ke Body DOM luar) -->
     <Teleport to="body">
       <div v-if="showConfirm" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
         <div class="glass p-8 w-full max-w-sm space-y-6 animate-in fade-in zoom-in duration-300">
@@ -239,10 +279,11 @@ const handleJoin = async () => {
       </div>
     </Teleport>
 
-    <!-- Rules Modal -->
+    <!-- Modal Bantuan Cara Bermain / Rules (Teleport ke Body DOM luar) -->
     <Teleport to="body">
       <div v-if="showRules" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-md">
         <div class="glass p-10 w-full max-w-lg max-h-[85vh] overflow-y-auto relative animate-in fade-in zoom-in duration-300 scrollbar-hide">
+          <!-- Tombol Tutup Modal Silang -->
           <button @click="showRules = false" class="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-full transition-colors z-20">
             <svg class="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -252,7 +293,9 @@ const handleJoin = async () => {
             <h2 class="text-3xl font-black text-slate-800 uppercase tracking-tighter">{{ t('rules.title') }}</h2>
             <div class="w-12 h-1.5 bg-primary-500 mx-auto mt-2 rounded-full"></div>
           </div>
+          <!-- Detail Aturan Tiap Karakter -->
           <div class="space-y-4 pb-4">
+            <!-- Penjelasan Warga Sipil (Civilian) -->
             <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex gap-4 items-start">
               <div class="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-2xl shrink-0">🏠</div>
               <div>
@@ -260,6 +303,7 @@ const handleJoin = async () => {
                 <p class="text-emerald-700 text-sm leading-relaxed">{{ t('rules.civilian.desc') }}</p>
               </div>
             </div>
+            <!-- Penjelasan Undercover -->
             <div class="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex gap-4 items-start">
               <div class="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-2xl shrink-0">🕵️</div>
               <div>
@@ -267,6 +311,7 @@ const handleJoin = async () => {
                 <p class="text-rose-700 text-sm leading-relaxed">{{ t('rules.undercover.desc') }}</p>
               </div>
             </div>
+            <!-- Penjelasan Mr. White -->
             <div class="p-4 rounded-2xl bg-slate-100 border border-slate-200 flex gap-4 items-start">
               <div class="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-2xl shrink-0">⚪</div>
               <div>
@@ -274,6 +319,7 @@ const handleJoin = async () => {
                 <p class="text-slate-600 text-sm leading-relaxed">{{ t('rules.mrWhite.desc') }}</p>
               </div>
             </div>
+            <!-- Tahapan Alur Permainan (Langkah 1, 2, 3) -->
             <div class="pt-6 border-t border-slate-100 w-full">
               <h4 class="font-black text-slate-800 text-xs uppercase mb-4 text-center tracking-[0.2em] opacity-50">{{ t('rules.howTo') }}</h4>
               <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-5">
@@ -283,6 +329,7 @@ const handleJoin = async () => {
               </div>
             </div>
           </div>
+          <!-- Tombol konfirmasi mengerti aturan -->
           <button @click="showRules = false" class="btn-primary w-full shadow-lg shadow-primary-500/20">
             {{ selectedLang === 'ID' ? 'Mengerti!' : 'Got it!' }}
           </button>
