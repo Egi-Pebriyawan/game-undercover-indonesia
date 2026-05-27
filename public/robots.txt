@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://undercover-indonesia.vercel.app/sitemap.xml
+Sitemap: https://undercoverparty.vercel.app/sitemap.xml
