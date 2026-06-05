@@ -1,6 +1,6 @@
 <script setup>
 // Mengimpor fungsi reaktivitas, hook lifecycle, dan watcher dari Vue 3
-import { computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 // Mengimpor hook useRouter untuk navigasi halaman secara terprogram
 import { useRouter } from "vue-router";
 // Mengimpor global game store Pinia
@@ -18,6 +18,9 @@ const router = useRouter();
 const gameStore = useGameStore();
 // Mengambil fungsi penerjemahan i18n
 const { t } = useI18n();
+
+// Ref status tampilan popup donasi
+const showSupportPopup = ref(false);
 
 // Watcher untuk mendeteksi apabila status room direset kembali ke LOBBY
 watch(
@@ -62,6 +65,11 @@ onMounted(async () => {
       } catch (e) {}
     }
   }
+
+  // Tampilkan popup donasi setelah 5 detik masuk ke final reveal
+  setTimeout(() => {
+    showSupportPopup.value = true;
+  }, 5000);
 });
 
 // Fungsi memicu partikel confetti secara berulang selama 3 detik
@@ -157,23 +165,23 @@ const backToHome = () => {
           <div
             v-for="player in gameStore.players"
             :key="player.id"
-            class="flex justify-between items-center p-5 rounded-2xl transition-all border-2"
+            class="flex flex-col sm:flex-row sm:justify-between sm:items-center p-5 rounded-2xl transition-all border-2 gap-4"
             :class="player.is_alive ? 'bg-white border-slate-50 shadow-sm' : 'bg-slate-50 border-transparent opacity-60'"
           >
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-4 min-w-0">
               <!-- Avatar inisial nama pemain -->
-              <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400">
+              <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400 shrink-0">
                 {{ player.nickname[0].toUpperCase() }}
               </div>
-              <div class="text-left">
+              <div class="text-left min-w-0">
                 <!-- Nickname pemain -->
-                <p class="font-bold text-slate-800 leading-none">{{ player.nickname }}</p>
+                <p class="font-bold text-slate-800 leading-none truncate">{{ player.nickname }}</p>
                 <!-- Label tereliminasi jika status is_alive false -->
                 <span v-if="!player.is_alive" class="inline-block mt-2 text-[8px] font-black tracking-widest bg-slate-200 text-slate-500 px-2 py-0.5 rounded uppercase">{{ t("eliminated") }}</span>
               </div>
             </div>
             <!-- Info kata rahasia & perannya -->
-            <div class="text-right">
+            <div class="text-left sm:text-right shrink-0">
               <p class="text-xs font-black uppercase tracking-widest mb-1" :class="player.role === 'CIVILIAN' ? 'text-primary-600' : 'text-primary-800'">
                 {{ t(`roles.${player.role.toLowerCase()}`) }}
               </p>
@@ -195,33 +203,55 @@ const backToHome = () => {
           <button @click="backToHome" class="w-full py-4 rounded-2xl font-black text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all uppercase tracking-widest text-xs">
             {{ t("backToHome") }}
           </button>
-
-          <!-- Menu Donasi untuk Developer -->
-          <div class="mt-12 pt-8 border-t border-slate-100 text-center animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
-            <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">{{ t("support.thanks") }}</p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <!-- Saweria (Dukungan Lokal) -->
-              <a
-                href="https://saweria.co/Pebri17"
-                target="_blank"
-                class="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-amber-50 px-6 py-3 rounded-2xl border border-amber-100 text-amber-600 hover:bg-amber-100 hover:scale-105 transition-all group"
-              >
-                <span class="text-xl group-hover:rotate-12 transition-transform">🇮🇩</span>
-                <span class="font-black text-xs uppercase tracking-widest">{{ t("support.local") }}</span>
-              </a>
-              <!-- Ko-fi (Dukungan Internasional) -->
-              <a
-                href="https://ko-fi.com/pebriyawan"
-                target="_blank"
-                class="w-full sm:w-auto inline-flex items-center justify-center gap-3 bg-blue-50 px-6 py-3 rounded-2xl border border-blue-100 text-blue-600 hover:bg-blue-100 hover:scale-105 transition-all group"
-              >
-                <span class="text-xl group-hover:rotate-12 transition-transform">🌎</span>
-                <span class="font-black text-xs uppercase tracking-widest">{{ t("support.international") }}</span>
-              </a>
-            </div>
-          </div>
         </div>
       </div>
     </div>
+
+    <!-- Modal Donasi / Support Developer (Teleport ke Body DOM luar) -->
+    <Teleport to="body">
+      <div v-if="showSupportPopup" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+        <div class="glass p-8 w-full max-w-md space-y-6 animate-in fade-in zoom-in duration-300 relative border-t-4 border-primary-500 text-center">
+          <!-- Tombol Tutup Silang di Kanan Atas -->
+          <button @click="showSupportPopup = false" class="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors z-20">
+            <svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          
+          <div>
+            <div class="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">☕</div>
+            <h3 class="text-xl font-bold text-slate-800">{{ t("support.thanks") }}</h3>
+            <p class="text-slate-500 text-sm mt-3 leading-relaxed">
+              {{ t("support.desc") }}
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <!-- Saweria (Dukungan Lokal) -->
+            <a
+              href="https://saweria.co/Pebri17"
+              target="_blank"
+              class="w-full inline-flex items-center justify-center gap-3 bg-amber-50 px-6 py-3.5 rounded-2xl border border-amber-100 text-amber-600 hover:bg-amber-100 hover:scale-[1.02] active:scale-95 transition-all group"
+            >
+              <span class="text-xl group-hover:rotate-12 transition-transform">🇮🇩</span>
+              <span class="font-black text-xs uppercase tracking-widest">{{ t("support.local") }}</span>
+            </a>
+            <!-- Ko-fi (Dukungan Internasional) -->
+            <a
+              href="https://ko-fi.com/pebriyawan"
+              target="_blank"
+              class="w-full inline-flex items-center justify-center gap-3 bg-blue-50 px-6 py-3.5 rounded-2xl border border-blue-100 text-blue-600 hover:bg-blue-100 hover:scale-[1.02] active:scale-95 transition-all group"
+            >
+              <span class="text-xl group-hover:rotate-12 transition-transform">🌎</span>
+              <span class="font-black text-xs uppercase tracking-widest">{{ t("support.international") }}</span>
+            </a>
+          </div>
+
+          <button @click="showSupportPopup = false" class="w-full py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+            Close
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

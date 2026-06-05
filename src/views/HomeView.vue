@@ -22,7 +22,7 @@ const nickname = ref('')
 // Ref reaktif untuk kode ruangan (room code) yang ingin dimasuki
 const roomCode = ref('')
 // Ref reaktif untuk pilihan bahasa default ('ID' atau 'EN')
-const selectedLang = ref('ID')
+const selectedLang = ref(locale.value)
 // Ref reaktif untuk memunculkan modal konfirmasi pembuatan room
 const showConfirm = ref(false)
 // Ref reaktif untuk memunculkan modal bantuan cara bermain (rules)
@@ -40,6 +40,7 @@ const toggleMute = () => {
 // Memantau perubahan pilihan bahasa untuk memperbarui teks UI secara instan
 watch(selectedLang, (newLang) => {
   locale.value = newLang
+  localStorage.setItem('locale', newLang)
 })
 
 // Dipanggil saat halaman beranda pertama kali dirender

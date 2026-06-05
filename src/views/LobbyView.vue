@@ -331,7 +331,7 @@ watch(
           <p class="text-primary-600 font-bold tracking-widest uppercase text-xs mb-2">{{ t("lobby") }}</p>
           <div class="flex items-center gap-4 justify-center md:justify-start">
             <!-- Room code display (large, monospace-style for readability) -->
-            <h1 class="text-4xl md:text-5xl font-black text-slate-800 tracking-widest bg-slate-50 px-6 py-2 rounded-2xl border border-slate-200 shadow-sm">
+            <h1 class="text-3xl md:text-4xl font-black text-slate-800 tracking-widest bg-slate-50 px-6 py-2 rounded-2xl border border-slate-200 shadow-sm break-all">
               {{ gameStore.currentRoom?.room_code }}
             </h1>
             <!-- WhatsApp share button: opens wa.me with pre-composed invite message -->
@@ -529,6 +529,7 @@ watch(
                   v-for="n in [0, 1, 2]"
                   :key="n"
                   @click="updateSettings('undercover_count', n)"
+                  :disabled="gameStore.players.length < 5"
                   class="flex-1 py-2 rounded-xl border-2 transition-all font-bold"
                   :class="[
                     gameStore.currentRoom.undercover_count === n ? 'bg-primary-500 border-primary-500 text-white shadow-lg shadow-primary-500/20' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200',
@@ -538,6 +539,9 @@ watch(
                   {{ n }}
                 </button>
               </div>
+              <p v-if="gameStore.players.length < 5" class="text-red-500 text-[10px] font-bold mt-1">
+                {{ t("settings.needPlayersUndercover") }}
+              </p>
             </div>
 
             <!--

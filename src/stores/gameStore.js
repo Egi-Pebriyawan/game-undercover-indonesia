@@ -150,6 +150,9 @@ export const useGameStore = defineStore("game", {
               room_code: roomCode,
               language,
               status: "LOBBY",
+              game_mode: "offline",
+              undercover_count: 0,
+              voting_method: "real-life",
             },
           ])
           .select()

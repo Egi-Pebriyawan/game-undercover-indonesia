@@ -85,6 +85,7 @@ const messages = {
       visKnown: 'Ya, mereka kenal',
       visSecret: 'Tidak, tetap rahasia',
       needPlayers: 'Butuh 4+ pemain untuk mulai',
+      needPlayersUndercover: 'Butuh minimal 5 orang untuk membuka role ini',
       host: 'Host',
       addOffline: 'Tambah'
     },
@@ -222,6 +223,7 @@ const messages = {
       visKnown: 'Yes, they know',
       visSecret: 'No, keep it secret',
       needPlayers: 'Need 4+ players to start',
+      needPlayersUndercover: 'Need at least 5 players to unlock this role',
       host: 'Host',
       addOffline: 'Add'
     },
@@ -277,9 +279,12 @@ const messages = {
   }
 }
 
+const browserLang = typeof navigator !== 'undefined' ? (navigator.language || navigator.userLanguage || '') : ''
+const defaultLocale = browserLang.toLowerCase().startsWith('id') ? 'ID' : 'EN'
+
 const i18n = createI18n({
   legacy: false,
-  locale: localStorage.getItem('locale') || 'ID',
+  locale: localStorage.getItem('locale') || defaultLocale,
   fallbackLocale: 'EN',
   messages
 })
